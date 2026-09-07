@@ -17,7 +17,15 @@ flutter pub get
 flutter run --dart-define-from-file=secrets/dart_defines.json
 ```
 
-키 없이 `flutter run`만 해도 앱은 뜨지만, 카카오 로그인은 게스트 모드로만 동작합니다.
+키 없이 `flutter run`만 해도 앱은 뜨지만, 카카오 로그인은 게스트 모드로만 동작하고
+노선 검색(TAGO)은 아예 실패합니다.
+
+> ⚠️ **TAGO 서비스키는 반드시 "디코딩" 버전을 넣으세요.** 공공데이터포털은 같은 키를
+> Encoding/Decoding 두 형태로 보여주는데, 앱에는 디코딩 버전(`+`, `/`, `=`가 그대로
+> 들어있는 쪽)을 넣어야 합니다. `TagoBusService`는 `Uri.replace(queryParameters:)`로
+> 요청을 만들고 이게 값을 다시 퍼센트 인코딩하기 때문에, 인코딩 버전(`%2B`, `%2F`,
+> `%3D`)을 넣으면 `%252B`처럼 이중 인코딩돼 인증에 실패합니다.
+> 반대로 **브라우저 주소창에서 직접 테스트할 때는 인코딩 버전**을 써야 합니다.
 
 ## 아직 채워야 하는 것
 
