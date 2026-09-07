@@ -6,33 +6,47 @@ Claude Design 핸드오프(`FLUTTER_HANDOFF.md`, `햇살좌석 앱.dc.html`)를 
 
 ## 실행
 
+API 키(카카오, TAGO)를 쓰려면 먼저 로컬 시크릿 파일을 채운다 (전부 gitignored — 저장소엔 `.example` 템플릿만 있음):
+
 ```bash
+cp secrets/dart_defines.example.json secrets/dart_defines.json          # 값 채우기
+cp android/app/secrets.properties.example android/app/secrets.properties # 값 채우기
+cp ios/Flutter/Secrets.xcconfig.example ios/Flutter/Secrets.xcconfig     # 값 채우기 (iOS 빌드 시에만 필요)
+
 flutter pub get
-flutter run
+flutter run --dart-define-from-file=secrets/dart_defines.json
 ```
+
+키 없이 `flutter run`만 해도 앱은 뜨지만, 카카오 로그인은 게스트 모드로만 동작합니다.
 
 ## 아직 채워야 하는 것
 
-### 카카오 로그인
-`kakao_flutter_sdk_user`를 붙여뒀지만 네이티브 앱 키가 없으면 동작하지 않고
-"카카오 네이티브 앱 키가 설정되지 않았습니다" 안내와 함께 게스트 모드로만 쓸 수 있습니다.
+### 카카오 로그인 — ✅ 키 연결 완료
+네이티브 앱 키를 3군데(Dart dart-define / Android manifest / iOS Info.plist)에 자동으로
+흘려보내도록 연결했습니다. `secrets/` 아래 로컬 파일만 채우면 실제로 로그인이 동작합니다.
+(`android/app/secrets.properties`, `ios/Flutter/Secrets.xcconfig`, `secrets/dart_defines.json`)
 
-키를 받으면:
-1. `flutter run --dart-define=KAKAO_NATIVE_APP_KEY=xxxxx` 로 실행하거나
-   `lib/config/kakao_config.dart`의 기본값을 채운다.
-2. `android/gradle.properties`에 `KAKAO_NATIVE_APP_KEY=xxxxx` 추가
-   (AndroidManifest의 리다이렉트 스킴이 자동으로 채워짐).
-3. `ios/Runner/Info.plist`의 `CFBundleURLSchemes` 값 `kakaoNATIVE_APP_KEY`를
-   `kakao{실제 키}`로 교체.
-
-### 지도 SDK
+### 지도 SDK — 아직 미구현, 방식 결정 필요
 `map` 화면은 지금 도로 그리드 + 건물 블록을 직접 그린 플레이스홀더입니다.
-카카오맵/네이버맵 SDK 키를 받으면 `lib/widgets/route_map_painter.dart` 자리를
-실제 지도 위젯으로 교체합니다.
+카카오맵 **네이티브 Android/iOS SDK**로 교체하려면 Flutter에서 두 가지 방법이 있습니다.
 
-### 노선/정류장 데이터
-`lib/models/route.dart`의 6개 노선은 시드 데이터입니다. 서울 TOPIS API 연동 시
-`FavoritesStore`/`AppState`의 노선 조회 부분을 API 호출로 교체합니다.
+1. **PlatformView + 네이티브 브릿지** — 진짜 네이티브 SDK를 Kotlin/Swift로 직접 붙이고
+   Flutter `PlatformView`로 감싼다. 가장 정확하지만 네이티브 코드 작업이 크고,
+   릴리스에 쓸 실제 서명 키스토어의 키 해시를 카카오 디벨로퍼스에 등록해야 한다
+   (그 키 해시는 개발자 본인 컴퓨터에서 `keytool`로 뽑아야 함 — 이 저장소만으론 대신할 수 없음).
+2. **WebView + 카카오맵 JavaScript SDK** — `webview_flutter`로 카카오맵 JS SDK를 담은
+   HTML을 로드. 네이티브 코드가 거의 필요 없어 빠르지만, 네이티브 앱 키가 아니라
+   별도의 **JavaScript 키**와 "웹 플랫폼 도메인" 등록이 카카오 디벨로퍼스에서 필요하다.
+
+### 노선/정류장 데이터 — 키는 받았지만 아직 연결 안 함
+`lib/models/route.dart`의 6개 노선은 시드 데이터 그대로입니다.
+TAGO 버스노선정보 API 키는 `lib/config/tago_config.dart`에 연결해뒀고,
+`lib/services/tago_bus_service.dart`에 뼈대만 만들어뒀습니다.
+
+⚠️ **주의**: 이 세션은 data.go.kr의 실제 API 명세 문서를 인터넷에서 조회할 수 없어서
+(`www.data.go.kr` 접근이 차단됨), `tago_bus_service.dart` 안의 엔드포인트 경로·파라미터명은
+**검증되지 않았습니다** — 공공데이터포털 버스 API들의 일반적인 패턴만 반영한 추정치입니다.
+실제로 쓰려면 활용신청 상세 페이지의 "OpenAPI 개발가이드" 문서를 보고 맞춰야 합니다.
 
 ### 기타
 - 위치: `geolocator`로 실제 GPS 좌표를 가져오지만, 좌표→정류장 매칭(역지오코딩)은

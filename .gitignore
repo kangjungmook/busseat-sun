@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API 키 등 비밀값 — 절대 커밋하지 않는다. (*.example.json 템플릿은 예외로 추적)
+/secrets/*
+!/secrets/*.example.json
+android/app/secrets.properties
+ios/Flutter/Secrets.xcconfig

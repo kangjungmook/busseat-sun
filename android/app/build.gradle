@@ -5,6 +5,14 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// 카카오 앱 키 등 비밀값 — android/secrets.properties (gitignored)에서 읽는다.
+// 파일이 없으면 빈 값으로 빌드된다 (로그인 기능만 비활성).
+def secretsFile = rootProject.file("app/secrets.properties")
+def secrets = new Properties()
+if (secretsFile.exists()) {
+    secretsFile.withInputStream { secrets.load(it) }
+}
+
 android {
     namespace = "com.sunseat.sunseat"
     compileSdk = flutter.compileSdkVersion
@@ -31,8 +39,8 @@ android {
         versionName = flutter.versionName
 
         // 카카오 로그인 리다이렉트 스킴(kakao{NATIVE_APP_KEY}://oauth).
-        // 키를 받으면 android/gradle.properties 에 KAKAO_NATIVE_APP_KEY=xxxxx 를 추가한다.
-        def kakaoNativeAppKey = project.findProperty("KAKAO_NATIVE_APP_KEY") ?: ""
+        // android/app/secrets.properties 에 KAKAO_NATIVE_APP_KEY=xxxxx 를 넣으면 자동 반영된다.
+        def kakaoNativeAppKey = secrets.getProperty("KAKAO_NATIVE_APP_KEY", "")
         manifestPlaceholders["kakaoNativeAppKey"] = kakaoNativeAppKey
     }
 

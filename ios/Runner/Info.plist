@@ -59,7 +59,7 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>kakaoNATIVE_APP_KEY</string>
+				<string>kakao$(KAKAO_NATIVE_APP_KEY)</string>
 			</array>
 		</dict>
 	</array>
