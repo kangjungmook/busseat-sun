@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/kakao_js_config.dart';
 import '../logic/computation.dart';
 import '../logic/seat_advice.dart';
 import '../logic/sun_calc.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/kakao_map_view.dart';
 import '../widgets/route_map_painter.dart';
 import '../widgets/segment_bar.dart';
 
@@ -25,6 +27,12 @@ class MapScreen extends StatelessWidget {
     final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, board: state.boardIndex, alight: state.alightIndex);
     final adv = comp.advice;
 
+    // 실제 정류장 좌표(TAGO)가 있고 카카오맵 JS 키가 설정된 경우에만 실제 지도로
+    // 바꾼다. 둘 중 하나라도 없으면 기존 도로 그리드 플레이스홀더로 대체한다
+    // (README "지도 SDK" 절 참고).
+    final mapStops = dir.mappableStops;
+    final useRealMap = KakaoJsConfig.isConfigured && mapStops.isNotEmpty;
+
     return SafeArea(
       top: false,
       bottom: false,
@@ -40,24 +48,38 @@ class MapScreen extends StatelessWidget {
 
               return Stack(
                 children: [
-                  Positioned.fill(child: CustomPaint(painter: RouteMapPainter(palette: palette, segments: comp.segments))),
-                  Positioned(
-                    left: originC.dx - 15,
-                    top: originC.dy - 15,
-                    child: Container(width: 30, height: 30, decoration: BoxDecoration(color: palette.primary, shape: BoxShape.circle, boxShadow: [palette.cardShadow]), child: const Icon(Icons.directions_bus, color: Colors.white, size: 16)),
-                  ),
-                  Positioned(left: originC.dx - 40, top: originC.dy + 20, child: _MapLabel(text: dir.from, palette: palette)),
-                  Positioned(
-                    left: destC.dx - 14,
-                    top: destC.dy - 14,
-                    child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: kLocationBlue, shape: BoxShape.circle), child: const Icon(Icons.location_on, color: Colors.white, size: 15)),
-                  ),
-                  Positioned(left: destC.dx + 6, top: destC.dy - 2, child: _MapLabel(text: dir.to, palette: palette)),
-                  Positioned(
-                    left: locC.dx - 17,
-                    top: locC.dy - 17,
-                    child: SizedBox(width: 34, height: 34, child: Center(child: _PulseDot())),
-                  ),
+                  ...useRealMap
+                      ? [
+                          Positioned.fill(
+                            child: KakaoMapView(
+                              key: ValueKey('${route.no}-${state.dirIndex}'),
+                              lat: mapStops[mapStops.length ~/ 2].point.lat,
+                              lng: mapStops[mapStops.length ~/ 2].point.lng,
+                              level: 6,
+                              stops: [for (final s in mapStops) MapStop(name: s.name, lat: s.point.lat, lng: s.point.lng)],
+                            ),
+                          ),
+                        ]
+                      : [
+                          Positioned.fill(child: CustomPaint(painter: RouteMapPainter(palette: palette, segments: comp.segments))),
+                          Positioned(
+                            left: originC.dx - 15,
+                            top: originC.dy - 15,
+                            child: Container(width: 30, height: 30, decoration: BoxDecoration(color: palette.primary, shape: BoxShape.circle, boxShadow: [palette.cardShadow]), child: const Icon(Icons.directions_bus, color: Colors.white, size: 16)),
+                          ),
+                          Positioned(left: originC.dx - 40, top: originC.dy + 20, child: _MapLabel(text: dir.from, palette: palette)),
+                          Positioned(
+                            left: destC.dx - 14,
+                            top: destC.dy - 14,
+                            child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: kLocationBlue, shape: BoxShape.circle), child: const Icon(Icons.location_on, color: Colors.white, size: 15)),
+                          ),
+                          Positioned(left: destC.dx + 6, top: destC.dy - 2, child: _MapLabel(text: dir.to, palette: palette)),
+                          Positioned(
+                            left: locC.dx - 17,
+                            top: locC.dy - 17,
+                            child: SizedBox(width: 34, height: 34, child: Center(child: _PulseDot())),
+                          ),
+                        ],
                   Positioned(
                     right: 14,
                     top: 74,

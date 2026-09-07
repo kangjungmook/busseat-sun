@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/geo.dart';
 import '../logic/sun_calc.dart';
 import '../models/route.dart';
 import '../state/app_state.dart';
@@ -281,6 +282,17 @@ class _FavoriteRow extends StatelessWidget {
   }
 }
 
+/// TAGO 좌표기반 근접 정류소 조회(TagoStationService, 미검증) 결과 캡션.
+/// 위치를 아직 안 받았거나 API가 실패하면 조용히 안내 문구로 대체한다.
+String _nearbyStationCaption(AppState state) {
+  if (state.nearbyStationLoading) return '가까운 정류장 찾는 중…';
+  final st = state.nearestKnownStation;
+  final loc = state.location;
+  if (st == null || loc == null) return '위치 아이콘을 눌러 확인';
+  final m = haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: st.lat, lng2: st.lng).round();
+  return '${st.nodeName} · ${m}m';
+}
+
 class _RecentsRow extends StatelessWidget {
   final AppPalette palette;
   final AppState state;
@@ -299,7 +311,13 @@ class _RecentsRow extends StatelessWidget {
           children: [
             Text('가까운 정류장', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .3, color: palette.textMuted)),
             const SizedBox(width: 6),
-            Text('강남역.중앙차로 · 120m', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, color: palette.primaryText)),
+            Expanded(
+              child: Text(
+                _nearbyStationCaption(state),
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, color: palette.primaryText),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),

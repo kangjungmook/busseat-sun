@@ -26,29 +26,6 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 흘려보내도록 연결했습니다. `secrets/` 아래 로컬 파일만 채우면 실제로 로그인이 동작합니다.
 (`android/app/secrets.properties`, `ios/Flutter/Secrets.xcconfig`, `secrets/dart_defines.json`)
 
-### 지도 SDK — WebView + JS SDK 뼈대 완성, 실제 지도 화면엔 아직 미연결
-`map` 화면(`lib/screens/map_screen.dart`)은 여전히 도로 그리드 + 건물 블록을 직접
-그린 플레이스홀더입니다. 실제 카카오맵을 붙이는 재사용 컴포넌트는 만들어뒀습니다:
-
-- `lib/widgets/kakao_map_view.dart` — `webview_flutter`로 `assets/map/kakao_map.html`
-  (카카오맵 JavaScript SDK)을 로드하는 위젯. `KakaoMapView(lat: ..., lng: ...)`로 바로 쓸 수 있음.
-- `lib/config/kakao_js_config.dart` — JS 키 설정 (다른 키들과 동일하게
-  `secrets/dart_defines.json`의 `KAKAO_JS_KEY`로 주입, JS 키는 **네이티브 앱 키와 다른 키**).
-
-**아직 실제 `map` 화면에 연결하지 않은 이유**: 지금 `RouteDir`엔 정류장 위경도 좌표가
-없어서 (표시용 정류장 이름만 있음) 실제 지도 위에 정확한 경로를 그릴 수가 없습니다.
-좌표가 생기기 전까지 `KakaoMapView`를 끼워 넣으면 위치가 안 맞는 지도만 뜨게 됩니다.
-좌표는 TAGO API(정류소 조회)나 카카오 로컬 API로 채울 수 있는데, 둘 다 아직 실제
-엔드포인트를 검증 못 했습니다 — 진행하려면 알려주세요.
-
-**당신이 해야 할 것 (JS 키 발급 시)**:
-1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
-2. 플랫폼 → Web → 사이트 도메인에 `https://appassets.androidplatform.net` 등록
-   (Android WebView가 앱 내 HTML을 서빙할 때 쓰는 가상 도메인)
-3. iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 이 세션에서 기기로 확인하지
-   못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
-4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
-
 ### 노선/정류장 데이터 — 실시간 TAGO 검색으로 교체 완료 (⚠️ 실기기 미검증)
 홈 화면 검색이 더 이상 6개 시드 데이터를 안 씁니다. 번호를 입력하고 검색을 누르면:
 
@@ -60,7 +37,12 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 3. 결과를 `RouteCache`(`shared_preferences`)에 저장 — 같은 노선을 또 검색하거나
    앱을 다시 켰을 때 네트워크를 안 기다리게.
 
-시드 데이터(`kSeedRoutes`)는 "가까운 정류장" 예시 칩과 오프라인 대체용으로만 남아있습니다.
+정류장 좌표는 `RouteDir.stopCoords`에 `stops`와 같은 인덱스로 저장됩니다
+(`GeoPoint?`, 좌표가 없으면 null) — 지도 연결과 근접 정류장 계산 둘 다 이 필드를 씁니다.
+
+시드 데이터(`kSeedRoutes`)는 "가까운 정류장" 예시 칩과 오프라인 대체용으로만
+남아있고, 좌표가 없어(`stopCoords`가 빈 리스트) 지도·근접 정류장 계산에서는
+자동으로 제외됩니다.
 
 **아직 실기기에서 못 본 부분**: `getRouteNoList` 자체는 브라우저로 실제 성공을
 확인했지만, 여러 도시 순회(`findRouteNationwide`) → 정류소 조회 → 방향 분리 →
@@ -69,18 +51,51 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 - `updowncd`로 상행/하행을 정확히 나눌 수 있는지 (문서엔 옵션 필드라 안 올 수도 있음)
 - 소요시간(`durationMin`)은 TAGO가 안 줘서 정류장 수 기반 추정치입니다 — 실제 값 아님
 - 전국 도시(~200개) 순회라 첫 검색이 몇 초 걸릴 수 있습니다 (동시 8개씩 처리, 캐시되면 이후엔 즉시)
+- **버스 번호는 전국적으로 고유하지 않습니다.** "100번"처럼 흔한 번호는 여러
+  도시에 동시에 존재할 수 있는데, `findRouteNationwide`는 같은 번호로 잡힌
+  도시들을 전부 하나의 `BusRoute`로 합쳐버립니다. 서로 무관한 노선의 방면들이
+  한 노선처럼 섞여 보일 수 있다는 뜻 — 사용자가 흔한 번호를 검색했을 때 방면
+  목록이 이상하게 많거나 안 맞으면 이 때문일 가능성이 높습니다. (도시별로
+  구분해서 고르게 하려면 방면 선택 UI를 도시 단위로 바꿔야 하는데, 이번
+  세션에서는 손대지 않았습니다.)
 
-### 지도 SDK — WebView + JS SDK 뼈대 완성, 실제 지도 화면엔 아직 미연결
-`map` 화면(`lib/screens/map_screen.dart`)은 여전히 도로 그리드 + 건물 블록을 직접
-그린 플레이스홀더입니다. 실제 카카오맵을 붙이는 재사용 컴포넌트는 만들어뒀습니다:
+### 근접 정류장 — 두 경로로 구현, 신뢰도가 다릅니다
 
-- `lib/widgets/kakao_map_view.dart` — `webview_flutter`로 `assets/map/kakao_map.html`
-  (카카오맵 JavaScript SDK)을 로드하는 위젯. `KakaoMapView(lat: ..., lng: ...)`로 바로 쓸 수 있음.
-- `lib/config/kakao_js_config.dart` — JS 키 설정 (다른 키들과 동일하게
-  `secrets/dart_defines.json`의 `KAKAO_JS_KEY`로 주입, JS 키는 **네이티브 앱 키와 다른 키**).
+**1) 방면 안의 가장 가까운 정류장 — ✅ 검증된 데이터로 계산.**
+`구간 지정` 화면의 "가까운 정류장으로" 버튼과 정류장 목록의 거리 캡션은 이제
+진짜 계산값입니다: `geolocator`의 실제 GPS 좌표와, 위에서 검증된
+`getRouteAcctoThrghSttnList` 좌표를 하버사인 공식(`lib/logic/geo.dart`의
+`haversineMeters`)으로 비교해 가장 가까운 인덱스를 고릅니다
+(`AppState.nearestStop`). 좌표가 없는 노선(시드 데이터)이거나 위치를 못 얻으면
+예전처럼 "두 번째 정류장"으로 조용히 대체합니다.
 
-이제 `RouteDir`에 실제 정류장 좌표가 들어있으니(위 TAGO 연동 참고) `map` 화면에
-`KakaoMapView`를 실제로 붙이는 건 남은 작업입니다 — JS 키만 받으면 바로 진행 가능합니다.
+**2) 홈 화면 "가까운 정류장" 캡션 — ⚠️ 미검증 API.**
+노선을 고르기 전, 홈 화면 상단 캡션(현재 위치 주변 아무 정류소)은
+`lib/services/tago_station_service.dart`(`TagoStationService`)가 새로
+붙었습니다. TAGO 정류소정보조회 서비스(`BusSttnInfoInqireService`)의
+`getCrdntPrxmtStaionList`(좌표기반근접정류소목록조회)를 쓰는데, 이건 버스노선정보
+서비스(`BusRouteInfoInqireService`)와 달리 **공식 문서로 확인하지 못했습니다** —
+일반적으로 알려진 필드명(`gpsLati`/`gpsLong`/`nodeid`/`nodenm`/...)을 그대로
+반영했을 뿐입니다. 진행하기 전에 브라우저 주소창에 아래 URL을 발급받은
+서비스키로 채워 붙여넣어 `resultCode: "00"`이 오는지 먼저 확인해 주세요:
+
+```
+https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtStaionList?serviceKey=<발급받은 키>&_type=json&gpsLati=37.498&gpsLong=127.028&numOfRows=5&pageNo=1
+```
+
+(좌표는 강남역 근처 예시입니다.) 응답이 다른 필드명으로 오면
+`TagoNearbyStation.fromJson`(`lib/models/tago.dart`)의 후보 키 목록만 고치면
+됩니다. 실패해도 앱은 멈추지 않고 캡션이 "위치 아이콘을 눌러 확인" 문구로
+조용히 대체됩니다 (`AppState._loadNearestStation`).
+
+### 지도 SDK — 실제 카카오맵을 `map` 화면에 연결 완료 (⚠️ JS 키 없으면 플레이스홀더)
+`map` 화면(`lib/screens/map_screen.dart`)은 이제 조건부로 두 가지 중 하나를 씁니다:
+
+- **JS 키가 설정돼 있고 + 현재 방면에 좌표 있는 정류장이 하나라도 있으면** →
+  `KakaoMapView`(`lib/widgets/kakao_map_view.dart`)로 실제 카카오맵을 띄우고,
+  `assets/map/kakao_map.html`의 `setStops()`로 정류장마다 마커를 찍습니다.
+- **그 외(JS 키 없음 / 좌표 없는 시드 데이터 등)** → 기존 도로 그리드
+  플레이스홀더(`RouteMapPainter`)로 조용히 대체 — 화면이 깨지지 않습니다.
 
 **당신이 해야 할 것 (JS 키 발급 시)**:
 1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
@@ -90,9 +105,14 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
    못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
 4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
 
+이 세션도 카카오맵 JS SDK 자체를 실기기에서 눌러보진 못했습니다 — WebView 로딩,
+마커 타이밍(SDK 로드 완료 전에 `setStops`가 불릴 수 있어 500ms 뒤 한 번 더
+부르도록 방어했습니다), Android/iOS 도메인 등록까지 실기기 확인이 필요합니다.
+
 ### 기타
-- 위치: `geolocator`로 실제 GPS 좌표를 가져오지만, 좌표→정류장 매칭(역지오코딩)은
-  TOPIS 연동 전까지는 하드코딩된 문구를 씁니다.
+- 위치: `geolocator`로 실제 GPS 좌표를 가져옵니다. 좌표→정류장 매칭은 위
+  "근접 정류장" 절 참고 — 방면 안에서는 검증된 좌표로 실제 계산되고, 노선을
+  고르기 전 홈 화면 캡션만 미검증 API를 씁니다.
 - AR: `flutter_compass` + `camera`를 실제로 사용합니다. 센서/카메라가 없는
   환경(시뮬레이터 등)에서는 자동으로 드래그 시뮬레이션으로 대체됩니다.
 - 이 샌드박스에는 Android/iOS 네이티브 SDK가 없어 `flutter analyze` / `flutter test`까지만

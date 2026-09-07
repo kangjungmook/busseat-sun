@@ -66,7 +66,9 @@ class TagoRouteRepository {
       final last = withCoords.last;
       final bearing = withCoords.length >= 2 ? initialBearing(lat1: first.lat!, lng1: first.lng!, lat2: last.lat!, lng2: last.lng!) : 0.0;
 
-      final names = group.map((s) => s.nodeName).where((n) => n.isNotEmpty).toList();
+      final named = group.where((s) => s.nodeName.isNotEmpty).toList();
+      final names = named.map((s) => s.nodeName).toList();
+      final coords = named.map((s) => s.lat != null && s.lng != null ? GeoPoint(lat: s.lat!, lng: s.lng!) : null).toList();
       final from = names.isNotEmpty ? names.first : (fallbackFrom ?? '');
       final to = names.isNotEmpty ? names.last : (fallbackTo ?? '');
 
@@ -77,6 +79,7 @@ class TagoRouteRepository {
         bearing: bearing,
         stops: names, // 전체 실제 정류장 — stopPicker가 이 전체 목록을 쓴다.
         stopCount: names.length,
+        stopCoords: coords, // stops[i]와 인덱스가 맞아야 한다 (좌표 없으면 null).
       ));
     }
     return dirs;

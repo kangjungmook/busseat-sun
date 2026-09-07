@@ -81,6 +81,47 @@ class TagoRoute {
   }
 }
 
+/// [좌표기반근접정류소목록 조회] getCrdntPrxmtStaionList 결과 1건
+/// (BusSttnInfoInqireService). ⚠️ 이 오퍼레이션은 BusRouteInfoInqireService의
+/// getRouteNoList처럼 공식 문서로 실제 호출 확인을 못 했다 — 공개적으로 널리
+/// 쓰이는 필드명(정류소정보조회 서비스 문서 기준)을 그대로 반영했을 뿐이니,
+/// 실제로 붙여보기 전엔 브라우저로 먼저 확인해야 한다 (README 참고).
+class TagoNearbyStation {
+  final String nodeId; // nodeid
+  final String nodeName; // nodenm
+  final String? nodeNo; // nodeno
+  final double lat; // gpslati
+  final double lng; // gpslong
+  final String? cityCode; // citycode
+  final Map<String, dynamic> raw;
+
+  const TagoNearbyStation({
+    required this.nodeId,
+    required this.nodeName,
+    this.nodeNo,
+    required this.lat,
+    required this.lng,
+    this.cityCode,
+    required this.raw,
+  });
+
+  /// lat/lng가 없는 항목은 거리 계산이 불가능해 null을 돌려준다.
+  static TagoNearbyStation? fromJson(Map<String, dynamic> json) {
+    final lat = _pickDouble(json, ['gpslati']);
+    final lng = _pickDouble(json, ['gpslong']);
+    if (lat == null || lng == null) return null;
+    return TagoNearbyStation(
+      nodeId: _pick(json, ['nodeid']) ?? '',
+      nodeName: _pick(json, ['nodenm']) ?? '',
+      nodeNo: _pick(json, ['nodeno']),
+      lat: lat,
+      lng: lng,
+      cityCode: _pick(json, ['citycode']),
+      raw: json,
+    );
+  }
+}
+
 /// [노선별경유정류소목록 조회] getRouteAcctoThrghSttnList 결과 1건.
 class TagoRouteStop {
   final String routeId; // routeid

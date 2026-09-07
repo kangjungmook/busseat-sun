@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 
+/// WGS84 좌표 하나. TAGO 정류소 좌표(gpslati/gpslong), 사용자 GPS 위치에 쓴다.
+class GeoPoint {
+  final double lat;
+  final double lng;
+
+  const GeoPoint({required this.lat, required this.lng});
+
+  Map<String, dynamic> toJson() => {'lat': lat, 'lng': lng};
+
+  factory GeoPoint.fromJson(Map<String, dynamic> json) => GeoPoint(
+        lat: (json['lat'] as num).toDouble(),
+        lng: (json['lng'] as num).toDouble(),
+      );
+}
+
 /// 방면 하나 — 기점→종점, 진행 방위, 정류장.
 class RouteDir {
   final String name; // '서울역 방면'
@@ -9,6 +24,10 @@ class RouteDir {
   final double bearing; // 진행 방위 (도, 0=북, 시계방향) — 좌석 계산의 핵심
   final List<String> stops; // 표시용 주요 정류장
   final int stopCount; // 실제 정류장 수
+  // stops[i]의 좌표. TAGO가 실제로 준 정류소만 채워지고(그 외 null), 시드
+  // 데이터(kSeedRoutes)는 좌표가 없어 빈 리스트로 둔다 — coordAt이 안전하게
+  // null을 돌려준다.
+  final List<GeoPoint?> stopCoords;
 
   const RouteDir({
     required this.name,
@@ -17,7 +36,20 @@ class RouteDir {
     required this.bearing,
     required this.stops,
     required this.stopCount,
+    this.stopCoords = const [],
   });
+
+  GeoPoint? coordAt(int i) => i >= 0 && i < stopCoords.length ? stopCoords[i] : null;
+
+  /// 지도에 그릴 수 있는(좌표가 있는) 정류장만 이름과 함께 뽑는다.
+  List<({String name, GeoPoint point})> get mappableStops {
+    final out = <({String name, GeoPoint point})>[];
+    for (var i = 0; i < stops.length; i++) {
+      final p = coordAt(i);
+      if (p != null) out.add((name: stops[i], point: p));
+    }
+    return out;
+  }
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -26,6 +58,7 @@ class RouteDir {
         'bearing': bearing,
         'stops': stops,
         'stopCount': stopCount,
+        'stopCoords': stopCoords.map((c) => c?.toJson()).toList(),
       };
 
   factory RouteDir.fromJson(Map<String, dynamic> json) => RouteDir(
@@ -35,6 +68,10 @@ class RouteDir {
         bearing: (json['bearing'] as num).toDouble(),
         stops: (json['stops'] as List).map((e) => e as String).toList(),
         stopCount: json['stopCount'] as int,
+        stopCoords: (json['stopCoords'] as List?)
+                ?.map((e) => e == null ? null : GeoPoint.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
       );
 }
 

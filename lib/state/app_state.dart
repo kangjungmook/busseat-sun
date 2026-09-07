@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../logic/geo.dart';
 import '../logic/sun_calc.dart';
 import '../models/route.dart';
+import '../models/tago.dart';
 import '../models/user.dart';
 import '../services/favorites_store.dart';
 import '../services/kakao_auth_service.dart';
 import '../services/location_service.dart';
 import '../services/route_cache.dart';
 import '../services/tago_route_repository.dart';
+import '../services/tago_station_service.dart';
 import '../theme/tokens.dart';
 
 enum AppScreen {
@@ -86,6 +91,12 @@ class AppState extends ChangeNotifier {
   // 위치
   LocationResult? location;
   bool locationLoading = false;
+
+  // 근접 정류장 (TAGO 좌표기반 정류소 조회 — 홈 화면 "가까운 정류장" 캡션용).
+  // ⚠️ getCrdntPrxmtStaionList는 이 세션에서 실제 호출로 검증하지 못했다 —
+  // 실패해도 조용히 무시하고 캡션은 안내 문구로 대체한다.
+  TagoNearbyStation? nearestKnownStation;
+  bool nearbyStationLoading = false;
 
   // 결과 화면 진입 애니메이션 트리거
   bool resultEntered = false;
@@ -383,11 +394,34 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 현재 방면의 정류장 중 사용자 위치에서 가장 가까운 것 — TAGO가 준 실제
+  /// 좌표(stopCoords)와 GPS 좌표를 하버사인으로 비교한다. 좌표가 없는 정류장
+  /// (시드 데이터 등)이거나 위치를 못 얻었으면 null.
+  ({int index, double meters})? get nearestStop {
+    final dir = currentDir;
+    final loc = location;
+    if (dir == null || loc == null) return null;
+    int? bestIdx;
+    double? bestDist;
+    for (var i = 0; i < dir.stops.length; i++) {
+      final c = dir.coordAt(i);
+      if (c == null) continue;
+      final d = haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: c.lat, lng2: c.lng);
+      if (bestDist == null || d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx == null || bestDist == null) return null;
+    return (index: bestIdx, meters: bestDist);
+  }
+
   Future<void> useNearestStop() async {
-    // 실제 서비스에서는 TOPIS API로 좌표 기반 최근접 정류장을 조회한다.
     final dir = currentDir;
     if (dir == null) return;
-    final nearIdx = 1.clamp(0, dir.stops.length - 1);
+    if (location == null) await refreshLocation();
+    final near = nearestStop;
+    final nearIdx = near?.index ?? (dir.stops.length > 1 ? 1 : 0);
     if (pickMode == 'board') {
       boardIndex = nearIdx;
     } else {
@@ -518,6 +552,24 @@ class AppState extends ChangeNotifier {
       location = await LocationService.current();
     } finally {
       locationLoading = false;
+      notifyListeners();
+    }
+    if (location != null) unawaited(_loadNearestStation());
+  }
+
+  /// 홈 화면 "가까운 정류장" 캡션 — 실패해도 화면을 막지 않고 조용히 넘어간다.
+  Future<void> _loadNearestStation() async {
+    final loc = location;
+    if (loc == null) return;
+    nearbyStationLoading = true;
+    notifyListeners();
+    try {
+      final stations = await TagoStationService.findNearby(lat: loc.lat, lng: loc.lon, numOfRows: 5);
+      nearestKnownStation = stations.isEmpty ? null : stations.first;
+    } catch (_) {
+      nearestKnownStation = null;
+    } finally {
+      nearbyStationLoading = false;
       notifyListeners();
     }
   }
