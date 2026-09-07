@@ -21,6 +21,7 @@ dependencies:
   shared_preferences: ^2.3.3
   http: ^1.2.2
   intl: ^0.19.0
+  webview_flutter: ^4.10.0
 
 dev_dependencies:
   flutter_test:
@@ -33,6 +34,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - assets/map/
 
   fonts:
     - family: Pretendard

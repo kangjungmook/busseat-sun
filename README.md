@@ -26,17 +26,28 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 흘려보내도록 연결했습니다. `secrets/` 아래 로컬 파일만 채우면 실제로 로그인이 동작합니다.
 (`android/app/secrets.properties`, `ios/Flutter/Secrets.xcconfig`, `secrets/dart_defines.json`)
 
-### 지도 SDK — 아직 미구현, 방식 결정 필요
-`map` 화면은 지금 도로 그리드 + 건물 블록을 직접 그린 플레이스홀더입니다.
-카카오맵 **네이티브 Android/iOS SDK**로 교체하려면 Flutter에서 두 가지 방법이 있습니다.
+### 지도 SDK — WebView + JS SDK 뼈대 완성, 실제 지도 화면엔 아직 미연결
+`map` 화면(`lib/screens/map_screen.dart`)은 여전히 도로 그리드 + 건물 블록을 직접
+그린 플레이스홀더입니다. 실제 카카오맵을 붙이는 재사용 컴포넌트는 만들어뒀습니다:
 
-1. **PlatformView + 네이티브 브릿지** — 진짜 네이티브 SDK를 Kotlin/Swift로 직접 붙이고
-   Flutter `PlatformView`로 감싼다. 가장 정확하지만 네이티브 코드 작업이 크고,
-   릴리스에 쓸 실제 서명 키스토어의 키 해시를 카카오 디벨로퍼스에 등록해야 한다
-   (그 키 해시는 개발자 본인 컴퓨터에서 `keytool`로 뽑아야 함 — 이 저장소만으론 대신할 수 없음).
-2. **WebView + 카카오맵 JavaScript SDK** — `webview_flutter`로 카카오맵 JS SDK를 담은
-   HTML을 로드. 네이티브 코드가 거의 필요 없어 빠르지만, 네이티브 앱 키가 아니라
-   별도의 **JavaScript 키**와 "웹 플랫폼 도메인" 등록이 카카오 디벨로퍼스에서 필요하다.
+- `lib/widgets/kakao_map_view.dart` — `webview_flutter`로 `assets/map/kakao_map.html`
+  (카카오맵 JavaScript SDK)을 로드하는 위젯. `KakaoMapView(lat: ..., lng: ...)`로 바로 쓸 수 있음.
+- `lib/config/kakao_js_config.dart` — JS 키 설정 (다른 키들과 동일하게
+  `secrets/dart_defines.json`의 `KAKAO_JS_KEY`로 주입, JS 키는 **네이티브 앱 키와 다른 키**).
+
+**아직 실제 `map` 화면에 연결하지 않은 이유**: 지금 `RouteDir`엔 정류장 위경도 좌표가
+없어서 (표시용 정류장 이름만 있음) 실제 지도 위에 정확한 경로를 그릴 수가 없습니다.
+좌표가 생기기 전까지 `KakaoMapView`를 끼워 넣으면 위치가 안 맞는 지도만 뜨게 됩니다.
+좌표는 TAGO API(정류소 조회)나 카카오 로컬 API로 채울 수 있는데, 둘 다 아직 실제
+엔드포인트를 검증 못 했습니다 — 진행하려면 알려주세요.
+
+**당신이 해야 할 것 (JS 키 발급 시)**:
+1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
+2. 플랫폼 → Web → 사이트 도메인에 `https://appassets.androidplatform.net` 등록
+   (Android WebView가 앱 내 HTML을 서빙할 때 쓰는 가상 도메인)
+3. iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 이 세션에서 기기로 확인하지
+   못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
+4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
 
 ### 노선/정류장 데이터 — 키는 받았지만 아직 연결 안 함
 `lib/models/route.dart`의 6개 노선은 시드 데이터 그대로입니다.
