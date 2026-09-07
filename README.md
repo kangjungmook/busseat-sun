@@ -103,16 +103,25 @@ https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtStaionList
 1. **JavaScript 키 발급/확인**: 앱 관리 → `앱` → **`플랫폼 키`** → 스크롤해서
    **`JavaScript 키`** 섹션 (네이티브 앱 키·REST API 키와 각각 다른 키다)
 2. **도메인 등록**: 같은 `JavaScript 키` 카드 안의 **`JavaScript SDK 도메인`** 에
-   `https://appassets.androidplatform.net` 추가
-   (Android WebView가 앱 내 asset을 서빙할 때 쓰는 가상 도메인)
+   **`https://localhost`** 추가 — `KakaoJsConfig.sdkDomain`의 기본값과 같은 값이어야
+   합니다 (다른 도메인을 쓰려면 `secrets/dart_defines.json`의 `KAKAO_JS_DOMAIN`과
+   콘솔 등록값을 같이 바꾸면 됩니다). 아래 "왜 localhost인가" 참고.
 3. **카카오맵 API 활성화**: 2026-07-21부터 이용 절차가 바뀌어서, 도메인 등록만으로는
    부족하고 앱 관리 페이지에서 카카오맵 API를 활성화해야 합니다. 무료 쿼터는
    **개발자 계정 기준 첫 번째로 활성화한 앱에만** 제공되므로, 다른 앱에서 이미
    카카오맵을 켠 적이 있다면 이 앱은 비즈월렛 연결(유료 API)이 필요할 수 있습니다.
 4. `secrets/dart_defines.json`의 `KAKAO_JS_KEY` 채우기 (gitignored — 저장소엔 안 올라감)
 
-iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 확인하지 못했습니다 —
-iOS 빌드 시 등록할 도메인을 다시 확인해야 할 수 있습니다.
+**왜 `localhost`인가 (이전 문서의 `appassets.androidplatform.net`은 틀린 값이었습니다)**:
+`webview_flutter`의 `loadFlutterAsset`은 내부적으로 `file:///android_asset/...`
+(iOS도 `file://`)로 로드해서 페이지 오리진이 `file://`이 됩니다. 카카오 JS SDK는
+등록된 도메인에서만 동작하는데 `file://`은 콘솔에 등록할 수 없습니다.
+`appassets.androidplatform.net`은 `flutter_inappwebview`의 `WebViewAssetLoader`가
+쓰는 가상 도메인이라 이 앱(`webview_flutter`)과는 무관합니다 — 등록해도 소용없습니다.
+그래서 `KakaoMapView`는 asset을 문자열로 읽어
+`loadHtmlString(html, baseUrl: KakaoJsConfig.sdkDomain)`으로 띄웁니다
+(Android `loadDataWithBaseUrl` / iOS `loadHTMLString(_:baseURL:)`). 이러면 오리진이
+`sdkDomain`이 되어 콘솔 등록값과 일치하고, Android/iOS 모두 같은 방식이 통합니다.
 
 > 위 콘솔 경로/정책은 검색 결과 기준으로만 확인했고 공식 문서를 직접 열어보진
 > 못했습니다 (샌드박스에서 `developers.kakao.com` 접근 차단). 화면이 다르면
