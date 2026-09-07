@@ -18,7 +18,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final hasQuery = state.query.isNotEmpty;
-    final matches = state.matches;
     final showFavs = !hasQuery && state.favorites.isNotEmpty;
 
     return SafeArea(
@@ -65,12 +64,16 @@ class HomeScreen extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             Expanded(
-              child: hasQuery ? _CandidatesList(palette: palette, state: state, matches: matches) : _RecentsRow(palette: palette, state: state),
+              child: hasQuery ? _SearchHint(palette: palette, state: state) : _RecentsRow(palette: palette, state: state),
             ),
             const SizedBox(height: 10),
             _Keypad(palette: palette, state: state),
             const SizedBox(height: 9),
-            SolidButton(text: state.ctaText, onTap: matches.isNotEmpty ? state.submitSearch : null, palette: palette),
+            SolidButton(
+              text: state.ctaText,
+              onTap: (hasQuery && !state.searching) ? state.submitSearch : null,
+              palette: palette,
+            ),
           ],
         ),
       ),
@@ -336,65 +339,41 @@ class _RecentsRow extends StatelessWidget {
   }
 }
 
-class _CandidatesList extends StatelessWidget {
+/// 타이핑 중엔 미리보기 후보를 보여주지 않는다 — 노선번호를 실시간으로
+/// 미리 훑으려면 전국 도시를 다 조회해야 해서(TagoBusService.findRouteNationwide)
+/// 키 입력마다 부르기엔 너무 무겁다. 대신 검색 버튼을 눌러야 실제로 찾는다.
+class _SearchHint extends StatelessWidget {
   final AppPalette palette;
   final AppState state;
-  final List<BusRoute> matches;
 
-  const _CandidatesList({required this.palette, required this.state, required this.matches});
+  const _SearchHint({required this.palette, required this.state});
 
   @override
   Widget build(BuildContext context) {
-    if (matches.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 4),
-        child: Text('일치하는 노선이 없어요. 번호를 확인해 주세요.', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted)),
+    if (state.searching) {
+      return Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2.5, color: palette.primary)),
+            const SizedBox(width: 9),
+            Text('전국에서 ${state.query}번 찾는 중…', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, fontWeight: FontWeight.w700, color: palette.textMuted)),
+          ],
+        ),
       );
     }
-    final top = matches.take(3).toList();
-    return ListView.separated(
-      itemCount: top.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 7),
-      itemBuilder: (context, i) {
-        final r = top[i];
-        return Material(
-          color: palette.surfaceColor,
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => state.chooseRoute(r),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 66),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), border: Border.all(color: palette.line)),
-              child: Row(
-                children: [
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 56),
-                    height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: r.badgeColor, borderRadius: BorderRadius.circular(9)),
-                    child: Text(r.no, style: const TextStyle(fontFamily: AppTextStyles.family, fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(r.dirs.map((d) => d.name).join(' / '), style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 15, fontWeight: FontWeight.w700, color: palette.text)),
-                        Text('${r.kind} · ${r.dirs.first.from} ↔ ${r.dirs.first.to}', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12, color: palette.textMuted)),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, size: 15, color: palette.textMuted),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+    if (state.searchError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 4),
+        child: Text(state.searchError!, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted)),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 4),
+      child: Text(
+        '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
+        style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted),
+      ),
     );
   }
 }

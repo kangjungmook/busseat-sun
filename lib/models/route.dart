@@ -18,6 +18,24 @@ class RouteDir {
     required this.stops,
     required this.stopCount,
   });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'from': from,
+        'to': to,
+        'bearing': bearing,
+        'stops': stops,
+        'stopCount': stopCount,
+      };
+
+  factory RouteDir.fromJson(Map<String, dynamic> json) => RouteDir(
+        name: json['name'] as String,
+        from: json['from'] as String,
+        to: json['to'] as String,
+        bearing: (json['bearing'] as num).toDouble(),
+        stops: (json['stops'] as List).map((e) => e as String).toList(),
+        stopCount: json['stopCount'] as int,
+      );
 }
 
 /// 버스 노선.
@@ -34,7 +52,23 @@ class BusRoute {
     required this.dirs,
   });
 
-  Color get badgeColor => kind == '간선' ? kBadgeTrunk : kBadgeExpress;
+  // '직행좌석'/'광역' 계열은 빨강, 그 외(간선/지선/마을버스 등 TAGO routetp
+  // 원문 그대로 들어올 수 있음)는 파랑 — 시드 데이터와 실제 TAGO 데이터 둘 다 커버.
+  Color get badgeColor => (kind.contains('직행좌석') || kind.contains('광역')) ? kBadgeExpress : kBadgeTrunk;
+
+  Map<String, dynamic> toJson() => {
+        'no': no,
+        'kind': kind,
+        'durationMin': durationMin,
+        'dirs': dirs.map((d) => d.toJson()).toList(),
+      };
+
+  factory BusRoute.fromJson(Map<String, dynamic> json) => BusRoute(
+        no: json['no'] as String,
+        kind: json['kind'] as String,
+        durationMin: json['durationMin'] as int,
+        dirs: (json['dirs'] as List).map((e) => RouteDir.fromJson(e as Map<String, dynamic>)).toList(),
+      );
 }
 
 /// 즐겨찾기 — 노선의 특정 방면 + 승/하차 구간.
@@ -58,7 +92,9 @@ class Favorite {
   });
 }
 
-/// 시드 데이터 — 프로토타입과 동일.
+/// 시드 데이터 — 프로토타입과 동일. 실제 검색은 TagoRouteRepository(실시간
+/// TAGO API)가 우선이고, 이건 "가까운 정류장" 예시 칩과 오프라인/API 실패 시
+/// 대체용으로만 쓴다.
 final List<BusRoute> kSeedRoutes = [
   const BusRoute(no: '9401', kind: '직행좌석', durationMin: 42, dirs: [
     RouteDir(

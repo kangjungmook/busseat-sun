@@ -247,7 +247,7 @@ class _DetailCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              for (final s in comp.dir.stops) Text(s, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, color: palette.textMuted)),
+              for (final s in comp.sampledStopLabels) Text(s, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, color: palette.textMuted)),
             ],
           ),
           const SizedBox(height: 5),

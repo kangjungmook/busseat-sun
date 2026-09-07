@@ -6,6 +6,8 @@ import '../models/user.dart';
 import '../services/favorites_store.dart';
 import '../services/kakao_auth_service.dart';
 import '../services/location_service.dart';
+import '../services/route_cache.dart';
+import '../services/tago_route_repository.dart';
 import '../theme/tokens.dart';
 
 enum AppScreen {
@@ -34,9 +36,17 @@ class AppState extends ChangeNotifier {
   String query = '';
   String keypadMode = 'num'; // 'num' | 'abc'
 
-  // 선택된 노선
-  String? routeNo;
+  // 선택된 노선 — TAGO에서 실시간으로 조회해 완전히 조립된 것을 그대로 들고 있는다
+  // (매번 노선번호로 다시 찾지 않는다).
+  BusRoute? resolvedRoute;
   int dirIndex = 0;
+
+  // TAGO 검색 결과 캐시 — 노선번호 → BusRoute. 세션 내 재검색을 막고,
+  // '오늘' 화면이 즐겨찾기를 앱 실행 즉시 그릴 수 있게 한다.
+  Map<String, BusRoute> routeCache = {};
+  final Set<String> _resolving = {};
+  bool searching = false;
+  String? searchError;
 
   // 시각 (분 단위, 0~1439)
   late int minutes;
@@ -85,11 +95,41 @@ class AppState extends ChangeNotifier {
     minutes = (now.hour * 60 + now.minute).clamp(0, 1439);
     KakaoAuthService.init();
     _loadFavorites();
+    _loadRouteCache();
   }
 
   Future<void> _loadFavorites() async {
     favorites = await FavoritesStore.load();
     notifyListeners();
+  }
+
+  Future<void> _loadRouteCache() async {
+    routeCache = await RouteCache.allCached();
+    notifyListeners();
+    // 캐시에 없는 즐겨찾기는 '오늘' 화면이 뜨기 전에 백그라운드로 미리 채워둔다.
+    for (final f in favorites) {
+      ensureRouteCached(f.routeNo);
+    }
+  }
+
+  Future<void> _cacheRoute(BusRoute route) async {
+    routeCache[route.no] = route;
+    await RouteCache.put(route);
+  }
+
+  /// 캐시에 없으면 조용히 백그라운드에서 채워온다 (실패해도 화면을 막지 않는다).
+  Future<void> ensureRouteCached(String routeNo) async {
+    if (routeCache.containsKey(routeNo) || _resolving.contains(routeNo)) return;
+    _resolving.add(routeNo);
+    try {
+      final route = await TagoRouteRepository.search(routeNo);
+      if (route != null) await _cacheRoute(route);
+    } catch (_) {
+      // '오늘' 화면은 다음에 다시 시도된다 — 여기서 에러를 표면화하지 않는다.
+    } finally {
+      _resolving.remove(routeNo);
+      notifyListeners();
+    }
   }
 
   // ---- 파생 값 ----
@@ -103,7 +143,7 @@ class AppState extends ChangeNotifier {
 
   bool get isNight => SunCalc.isNight(minutes);
 
-  BusRoute? get currentRoute => routeNo == null ? null : findRoute(routeNo!);
+  BusRoute? get currentRoute => resolvedRoute;
 
   RouteDir? get currentDir {
     final r = currentRoute;
@@ -111,14 +151,13 @@ class AppState extends ChangeNotifier {
     return r.dirs[dirIndex.clamp(0, r.dirs.length - 1)];
   }
 
-  List<BusRoute> get matches {
-    if (query.isEmpty) return const [];
-    return kSeedRoutes.where((r) => r.no.startsWith(query)).toList();
-  }
-
   List<String> get keypadKeys => keypadMode == 'abc' ? kAbcKeys : kNumKeys;
 
-  String get ctaText => matches.isNotEmpty ? '${matches.first.no}번 ${effectiveMode == SunMode.shade ? '그늘' : '햇살'} 계산하기' : '버스 번호를 입력하세요';
+  String get ctaText {
+    if (searching) return '검색 중…';
+    if (query.isEmpty) return '버스 번호를 입력하세요';
+    return '$query번 ${effectiveMode == SunMode.shade ? '그늘' : '햇살'} 계산하기';
+  }
 
   String get todayGreeting {
     final hh = DateTime.now().hour;
@@ -141,6 +180,7 @@ class AppState extends ChangeNotifier {
   void goHome() {
     screen = AppScreen.home;
     query = '';
+    searchError = null;
     notifyListeners();
   }
 
@@ -197,16 +237,44 @@ class AppState extends ChangeNotifier {
 
   void clearQuery() {
     query = '';
+    searchError = null;
     notifyListeners();
   }
 
-  void submitSearch() {
-    if (matches.isNotEmpty) chooseRoute(matches.first);
+  /// 노선번호로 전국 TAGO 검색 → 결과에 따라 결과 화면 또는 방면 선택으로.
+  Future<void> submitSearch() async {
+    final q = query.trim();
+    if (q.isEmpty || searching) return;
+
+    searching = true;
+    searchError = null;
+    screen = AppScreen.loading;
+    notifyListeners();
+
+    BusRoute? route;
+    try {
+      route = routeCache[q] ?? await TagoRouteRepository.search(q);
+    } catch (_) {
+      route = null;
+      searchError = '노선 정보를 불러오지 못했어요. 네트워크를 확인해 주세요.';
+    }
+
+    searching = false;
+    if (route == null) {
+      searchError ??= '"$q"번 노선을 찾을 수 없어요. 번호를 확인해 주세요.';
+      screen = AppScreen.home;
+      notifyListeners();
+      return;
+    }
+
+    await _cacheRoute(route);
+    chooseRoute(route);
   }
 
   void chooseRoute(BusRoute route) {
+    resolvedRoute = route;
     if (route.dirs.length > 1) {
-      routeNo = route.no;
+      screen = AppScreen.home;
       dirPickerOpen = true;
       notifyListeners();
     } else {
@@ -221,7 +289,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> pickDir(BusRoute route, int i) async {
-    routeNo = route.no;
+    resolvedRoute = route;
     dirIndex = i;
     dirPickerOpen = false;
     screen = AppScreen.loading;
@@ -375,18 +443,38 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void openFavoriteResult(Favorite fav) {
-    routeNo = fav.routeNo;
-    dirIndex = fav.dirIndex;
+  /// 즐겨찾기 탭 — 캐시에 있으면 바로, 없으면 로딩을 잠깐 보여주고 TAGO에서
+  /// 받아온다 (예: 다른 기기에서 등록한 즐겨찾기를 처음 여는 경우).
+  Future<void> openFavoriteResult(Favorite fav) async {
+    var route = routeCache[fav.routeNo];
+    if (route == null) {
+      screen = AppScreen.loading;
+      resultEntered = false;
+      notifyListeners();
+      try {
+        route = await TagoRouteRepository.search(fav.routeNo);
+      } catch (_) {
+        route = null;
+      }
+      if (route == null) {
+        searchError = '즐겨찾기한 ${fav.routeNo}번 노선을 불러오지 못했어요.';
+        screen = AppScreen.home;
+        notifyListeners();
+        return;
+      }
+      await _cacheRoute(route);
+    }
+
+    resolvedRoute = route;
+    dirIndex = fav.dirIndex.clamp(0, route.dirs.length - 1);
     boardIndex = fav.boardIndex;
     alightIndex = fav.alightIndex;
     resultEntered = false;
     screen = AppScreen.result;
     notifyListeners();
-    Future.delayed(const Duration(milliseconds: 60), () {
-      resultEntered = true;
-      notifyListeners();
-    });
+    await Future.delayed(const Duration(milliseconds: 60));
+    resultEntered = true;
+    notifyListeners();
   }
 
   // ---- 시각 슬라이더 (지도 / AR) ----

@@ -12,8 +12,12 @@ class TodayScreen extends StatelessWidget {
 
   const TodayScreen({super.key, required this.palette});
 
-  SeatComputation _computeFor(Favorite f, AppState state) {
-    final route = findRoute(f.routeNo);
+  SeatComputation? _computeFor(Favorite f, AppState state) {
+    final route = state.routeCache[f.routeNo];
+    if (route == null) {
+      state.ensureRouteCached(f.routeNo);
+      return null;
+    }
     return SeatComputation.build(
       route: route,
       dirIndex: f.dirIndex,
@@ -22,6 +26,18 @@ class TodayScreen extends StatelessWidget {
       board: f.boardIndex,
       alight: f.alightIndex,
     );
+  }
+
+  Widget _buildTodayCard(Favorite f, AppState state) {
+    final comp = _computeFor(f, state);
+    if (comp == null) return _FavSkeleton(height: 176, palette: palette);
+    return _TodayCard(fav: f, comp: comp, palette: palette, onTap: () => state.openFavoriteResult(f));
+  }
+
+  Widget _buildFavRow(Favorite f, AppState state) {
+    final comp = _computeFor(f, state);
+    if (comp == null) return _FavSkeleton(height: 58, palette: palette);
+    return _FavRow(fav: f, comp: comp, palette: palette, onTap: () => state.openFavoriteResult(f));
   }
 
   @override
@@ -59,10 +75,10 @@ class TodayScreen extends StatelessWidget {
               style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -0.8, height: 1.3, color: palette.text),
             ),
             const SizedBox(height: 14),
-            if (f1 != null) _TodayCard(fav: f1, comp: _computeFor(f1, state), palette: palette, onTap: () => state.openFavoriteResult(f1)),
+            if (f1 != null) _buildTodayCard(f1, state),
             if (f2 != null) ...[
               const SizedBox(height: 8),
-              _FavRow(fav: f2, comp: _computeFor(f2, state), palette: palette, onTap: () => state.openFavoriteResult(f2)),
+              _buildFavRow(f2, state),
             ],
             const Spacer(),
             OutlineButton(text: '다른 노선 찾기', onTap: state.goHome, palette: palette),
@@ -184,6 +200,30 @@ class _FavRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 즐겨찾기를 아직 캐시에서 못 불러왔을 때(예: 앱을 처음 켰거나 다른
+/// 기기에서 등록한 즐겨찾기) 잠깐 보여주는 자리표시자 — 백그라운드에서
+/// AppState.ensureRouteCached가 채우면 다음 rebuild에서 실제 카드로 바뀐다.
+class _FavSkeleton extends StatelessWidget {
+  final double height;
+  final AppPalette palette;
+
+  const _FavSkeleton({required this.height, required this.palette});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(color: palette.subtle, borderRadius: BorderRadius.circular(AppRadius.cardLg)),
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2.5, color: palette.textMuted),
       ),
     );
   }

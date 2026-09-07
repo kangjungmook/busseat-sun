@@ -49,23 +49,46 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
    못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
 4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
 
-### 노선/정류장 데이터 — API 스펙 확정, 실제 연결은 아직
-`lib/models/route.dart`의 6개 노선은 아직 시드 데이터 그대로입니다 (AppState는 이걸 계속 씀).
-`lib/services/tago_bus_service.dart` / `lib/models/tago.dart`는 이제 **공식 문서 기준으로
-확정**되어 있습니다 — 사용자가 활용신청 승인 후 받은
-"오픈API활용가이드_국토교통부(TAGO)_버스노선정보v1.0.docx"를 그대로 반영했고,
-`getRouteNoList`는 실제 호출로도 성공(`resultCode 00`)을 확인했습니다.
+### 노선/정류장 데이터 — 실시간 TAGO 검색으로 교체 완료 (⚠️ 실기기 미검증)
+홈 화면 검색이 더 이상 6개 시드 데이터를 안 씁니다. 번호를 입력하고 검색을 누르면:
 
-- base URL 1개, 오퍼레이션 4개(`getRouteNoList`/`getRouteAcctoThrghSttnList`/
-  `getRouteInfoIem`/`getCtyCodeList`) 전부 같은 `BusRouteInfoInqireService` 아래에 있습니다.
-- `설정 → 개발자용 → TAGO API 테스트` 화면(또는 URL을 브라우저 주소창에 직접 붙여넣기)으로
-  실제로 확인 가능합니다.
-- **다음 단계**: `getCtyCodeList`로 도시코드 전체 목록을 받아서, 지금 시드 데이터의
-  6개 노선(9401/9404/3401/1550/140/472)이 각각 어느 cityCode에 등록돼 있는지 찾아야
-  `AppState`가 시드 대신 실제 API를 쓰도록 연결할 수 있습니다. 특히 9401/3401/1550 같은
-  광역·직행좌석버스는 서울이 아니라 실제 운행 지자체(성남시 등) 코드일 가능성이 높습니다.
-- 정류소 좌표(`gpslati`/`gpslong`)까지 확보되면 `RouteDir.bearing`(진행 방위)도 하드코딩
-  대신 기점→종점 좌표로 실제 계산할 수 있게 됩니다 — 지도(`KakaoMapView`) 연결의 전제조건이기도 합니다.
+1. `TagoBusService.findRouteNationwide` — 도시코드 전체를 훑어 그 번호가 등록된
+   도시/routeId를 전부 찾고 (사람이 도시를 몰라도 됨)
+2. `TagoRouteRepository.search` — 찾은 routeId마다 `getRouteAcctoThrghSttnList`로
+   실제 정류장+좌표를 받아서, 상행/하행(`updowncd`)별로 `RouteDir`을 조립하고
+   (`RouteDir.bearing`도 이제 좌표 2개로 실제 계산 — `lib/logic/geo.dart`)
+3. 결과를 `RouteCache`(`shared_preferences`)에 저장 — 같은 노선을 또 검색하거나
+   앱을 다시 켰을 때 네트워크를 안 기다리게.
+
+시드 데이터(`kSeedRoutes`)는 "가까운 정류장" 예시 칩과 오프라인 대체용으로만 남아있습니다.
+
+**아직 실기기에서 못 본 부분**: `getRouteNoList` 자체는 브라우저로 실제 성공을
+확인했지만, 여러 도시 순회(`findRouteNationwide`) → 정류소 조회 → 방향 분리 →
+결과 화면까지 이어지는 전체 흐름은 `flutter analyze`/`flutter test`로 타입/구조만
+검증했고 실제 기기에서 눌러본 적은 없습니다. 특히:
+- `updowncd`로 상행/하행을 정확히 나눌 수 있는지 (문서엔 옵션 필드라 안 올 수도 있음)
+- 소요시간(`durationMin`)은 TAGO가 안 줘서 정류장 수 기반 추정치입니다 — 실제 값 아님
+- 전국 도시(~200개) 순회라 첫 검색이 몇 초 걸릴 수 있습니다 (동시 8개씩 처리, 캐시되면 이후엔 즉시)
+
+### 지도 SDK — WebView + JS SDK 뼈대 완성, 실제 지도 화면엔 아직 미연결
+`map` 화면(`lib/screens/map_screen.dart`)은 여전히 도로 그리드 + 건물 블록을 직접
+그린 플레이스홀더입니다. 실제 카카오맵을 붙이는 재사용 컴포넌트는 만들어뒀습니다:
+
+- `lib/widgets/kakao_map_view.dart` — `webview_flutter`로 `assets/map/kakao_map.html`
+  (카카오맵 JavaScript SDK)을 로드하는 위젯. `KakaoMapView(lat: ..., lng: ...)`로 바로 쓸 수 있음.
+- `lib/config/kakao_js_config.dart` — JS 키 설정 (다른 키들과 동일하게
+  `secrets/dart_defines.json`의 `KAKAO_JS_KEY`로 주입, JS 키는 **네이티브 앱 키와 다른 키**).
+
+이제 `RouteDir`에 실제 정류장 좌표가 들어있으니(위 TAGO 연동 참고) `map` 화면에
+`KakaoMapView`를 실제로 붙이는 건 남은 작업입니다 — JS 키만 받으면 바로 진행 가능합니다.
+
+**당신이 해야 할 것 (JS 키 발급 시)**:
+1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
+2. 플랫폼 → Web → 사이트 도메인에 `https://appassets.androidplatform.net` 등록
+   (Android WebView가 앱 내 HTML을 서빙할 때 쓰는 가상 도메인)
+3. iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 이 세션에서 기기로 확인하지
+   못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
+4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
 
 ### 기타
 - 위치: `geolocator`로 실제 GPS 좌표를 가져오지만, 좌표→정류장 매칭(역지오코딩)은

@@ -68,6 +68,16 @@ class SeatComputation {
   int get stopCount => dir.stopCount;
   int get durationMin => route.durationMin;
 
+  /// "구간별 일사" 라벨 줄에 쓸 대표 정류장 이름 — 실제 정류장이 많을 수
+  /// 있어(TAGO 연동 노선) 처음/중간 둘/끝, 최대 4개만 고르게 뽑는다.
+  List<String> get sampledStopLabels {
+    final stops = dir.stops;
+    if (stops.length <= 4) return stops;
+    final last = stops.length - 1;
+    final idxs = {0, (last / 3).round(), (last * 2 / 3).round(), last}.toList()..sort();
+    return idxs.map((i) => stops[i]).toList();
+  }
+
   /// 지도용 근사 좌표 경로 (프로토타입의 M104 452L... 경로와 동일한 형태).
   static const List<String> mapPathSegments = [
     'M104 452L104 392Q104 380 120 376L170 366',
