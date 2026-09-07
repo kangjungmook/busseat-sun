@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../logic/geo.dart';
 import '../logic/sun_calc.dart';
 import '../models/route.dart';
-import '../models/tago.dart';
 import '../models/user.dart';
 import '../services/favorites_store.dart';
 import '../services/kakao_auth_service.dart';
@@ -92,11 +91,14 @@ class AppState extends ChangeNotifier {
   LocationResult? location;
   bool locationLoading = false;
 
-  // 근접 정류장 (TAGO 좌표기반 정류소 조회 — 홈 화면 "가까운 정류장" 캡션용).
-  // ⚠️ getCrdntPrxmtStaionList는 이 세션에서 실제 호출로 검증하지 못했다 —
-  // 실패해도 조용히 무시하고 캡션은 안내 문구로 대체한다.
-  TagoNearbyStation? nearestKnownStation;
+  // 홈 화면 "가까운 정류장" 캡션 — 이름 + 현재 위치로부터의 거리(m).
+  ({String name, double meters})? nearbyStationLabel;
   bool nearbyStationLoading = false;
+
+  /// 캡션에 쓸 정류장의 최대 거리. 캐시된 노선으로 대체 계산할 때(다른 도시
+  /// 노선만 캐시돼 있을 수 있다) "350km 떨어진 정류장"을 가까운 정류장이라고
+  /// 우기지 않도록 자른다.
+  static const double _nearbyCaptionMaxMeters = 2000;
 
   // 결과 화면 진입 애니메이션 트리거
   bool resultEntered = false;
@@ -558,19 +560,57 @@ class AppState extends ChangeNotifier {
   }
 
   /// 홈 화면 "가까운 정류장" 캡션 — 실패해도 화면을 막지 않고 조용히 넘어간다.
+  ///
+  /// 1순위는 TAGO 좌표기반 정류소 조회(전국 아무 정류소나 찾을 수 있음)지만,
+  /// 그 서비스는 별도 활용신청이 필요해서 지금 키로는 `NO_OPENAPI_SERVICE_ERROR`가
+  /// 온다 (2026-09-07 확인). 그래서 실패하면 2순위로 **이미 받아둔 노선 캐시의
+  /// 정류장 좌표**에서 가장 가까운 것을 찾는다 — 검증된 버스노선정보 API
+  /// 데이터라 추가 신청 없이 동작한다. 다만 캐시에 있는 노선(즐겨찾기·최근 검색)
+  /// 위의 정류장만 후보가 된다.
   Future<void> _loadNearestStation() async {
     final loc = location;
     if (loc == null) return;
     nearbyStationLoading = true;
     notifyListeners();
+
+    ({String name, double meters})? found;
     try {
       final stations = await TagoStationService.findNearby(lat: loc.lat, lng: loc.lon, numOfRows: 5);
-      nearestKnownStation = stations.isEmpty ? null : stations.first;
+      if (stations.isNotEmpty) {
+        final s = stations.first;
+        found = (
+          name: s.nodeName,
+          meters: haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: s.lat, lng2: s.lng),
+        );
+      }
     } catch (_) {
-      nearestKnownStation = null;
-    } finally {
-      nearbyStationLoading = false;
-      notifyListeners();
+      // 활용신청 안 됨/네트워크 실패 — 아래 캐시 기반 대체로 넘어간다.
     }
+
+    found ??= _nearestStopInCachedRoutes(loc);
+    nearbyStationLabel = (found != null && found.meters <= _nearbyCaptionMaxMeters) ? found : null;
+    nearbyStationLoading = false;
+    notifyListeners();
+  }
+
+  /// 캐시된 노선들의 정류장 중 [loc]에서 가장 가까운 것.
+  ({String name, double meters})? _nearestStopInCachedRoutes(LocationResult loc) {
+    String? bestName;
+    double? bestDist;
+    for (final route in routeCache.values) {
+      for (final dir in route.dirs) {
+        for (var i = 0; i < dir.stops.length; i++) {
+          final c = dir.coordAt(i);
+          if (c == null) continue;
+          final d = haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: c.lat, lng2: c.lng);
+          if (bestDist == null || d < bestDist) {
+            bestDist = d;
+            bestName = dir.stops[i];
+          }
+        }
+      }
+    }
+    if (bestName == null || bestDist == null) return null;
+    return (name: bestName, meters: bestDist);
   }
 }

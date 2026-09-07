@@ -5,17 +5,24 @@ import 'package:http/http.dart' as http;
 import '../config/tago_config.dart';
 import '../logic/geo.dart';
 import '../models/tago.dart';
-import 'tago_bus_service.dart' show TagoApiException;
+import 'tago_bus_service.dart' show TagoApiException, decodeTagoBody;
 
 /// 국토교통부 TAGO 정류소정보조회 서비스(BusSttnInfoInqireService) 클라이언트.
 ///
-/// ⚠️ **상태: 미검증**. [TagoBusService](같은 폴더, BusRouteInfoInqireService)는
-/// 사용자가 공유해준 공식 문서로 확정됐지만, 이 서비스(getCrdntPrxmtStaionList,
-/// 좌표기반근접정류소목록조회)는 그 문서에 없다 — 일반적으로 널리 알려진
-/// data.go.kr TAGO 정류소정보조회 API 스펙을 따랐을 뿐, 실제 호출로 확인하지
-/// 못했다. `secrets/dart_defines.json`에 키를 채운 뒤, 실기기 없이도 아래
-/// URL을 브라우저 주소창에 그대로 붙여넣어 `resultCode: "00"`이 오는지 먼저
-/// 확인해달라 (serviceKey는 URL 인코딩된 값 그대로):
+/// ⚠️ **상태: 현재 이 프로젝트의 키로는 동작하지 않는다.** 2026-09-07에 실제로
+/// 브라우저에서 호출해본 결과, 사용자의 서비스키로는
+/// `NO_OPENAPI_SERVICE_ERROR`(returnReasonCode `12`)가 돌아왔다.
+/// 공공데이터포털에서 신청한 것이 "국토교통부(TAGO)_**버스노선정보**"뿐이라
+/// **정류소정보 서비스는 별도로 활용신청**을 해야 하기 때문으로 보인다.
+/// (같은 키로 BusRouteInfoInqireService의 getCtyCodeList는 `resultCode: "00"`
+/// 정상 응답 — 즉 키 자체는 멀쩡하다.)
+///
+/// 그래서 홈 화면의 "가까운 정류장"은 이 서비스가 실패하면
+/// [AppState] 쪽에서 **캐시된 노선의 정류장 좌표**로 대신 계산한다 — 그쪽은
+/// 이미 검증된 버스노선정보 API 데이터라 추가 신청이 필요 없다.
+///
+/// 활용신청을 한 뒤 다시 쓰려면, 먼저 아래 URL을 브라우저에 붙여넣어
+/// `resultCode: "00"`이 오는지 확인하면 된다 (serviceKey는 **인코딩된** 값):
 ///
 /// ```
 /// https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtStaionList
@@ -47,29 +54,32 @@ class TagoStationService {
       'numOfRows': numOfRows.toString(),
     });
     final res = await http.get(uri);
+    final body = decodeTagoBody(res);
     if (res.statusCode != 200) {
-      throw TagoApiException('HTTP ${res.statusCode}', rawBody: res.body);
+      throw TagoApiException('HTTP ${res.statusCode}', rawBody: body);
     }
 
     late final dynamic decoded;
     try {
-      decoded = jsonDecode(res.body);
+      decoded = jsonDecode(body);
     } catch (_) {
-      throw TagoApiException('JSON 파싱 실패 (XML 에러 응답일 가능성) — rawBody 확인', rawBody: res.body);
+      throw TagoApiException('JSON 파싱 실패 (XML 에러 응답일 가능성) — rawBody 확인', rawBody: body);
     }
 
     final cmmHeader = decoded['OpenAPI_ServiceResponse']?['cmmMsgHeader'];
     if (cmmHeader != null) {
+      // 활용신청을 안 한 서비스면 여기로 온다 (returnReasonCode "12",
+      // NO_OPENAPI_SERVICE_ERROR) — 2026-09-07 실제 호출로 확인됨.
       throw TagoApiException(
-        'TAGO 공통 오류(${cmmHeader['returnReasonCode']}): ${cmmHeader['returnAuthMsg']}',
-        rawBody: res.body,
+        'TAGO 공통 오류(${cmmHeader['returnReasonCode']}): ${cmmHeader['errMsg'] ?? cmmHeader['returnAuthMsg']}',
+        rawBody: body,
       );
     }
 
     final header = decoded['response']?['header'];
     final resultCode = header?['resultCode']?.toString();
     if (resultCode != null && resultCode != '00') {
-      throw TagoApiException('TAGO 오류 $resultCode: ${header?['resultMsg']}', rawBody: res.body);
+      throw TagoApiException('TAGO 오류 $resultCode: ${header?['resultMsg']}', rawBody: body);
     }
 
     final items = decoded['response']?['body']?['items'];

@@ -77,24 +77,42 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 (`AppState.nearestStop`). 좌표가 없는 노선(시드 데이터)이거나 위치를 못 얻으면
 예전처럼 "두 번째 정류장"으로 조용히 대체합니다.
 
-**2) 홈 화면 "가까운 정류장" 캡션 — ⚠️ 미검증 API.**
-노선을 고르기 전, 홈 화면 상단 캡션(현재 위치 주변 아무 정류소)은
-`lib/services/tago_station_service.dart`(`TagoStationService`)가 새로
-붙었습니다. TAGO 정류소정보조회 서비스(`BusSttnInfoInqireService`)의
-`getCrdntPrxmtStaionList`(좌표기반근접정류소목록조회)를 쓰는데, 이건 버스노선정보
-서비스(`BusRouteInfoInqireService`)와 달리 **공식 문서로 확인하지 못했습니다** —
-일반적으로 알려진 필드명(`gpsLati`/`gpsLong`/`nodeid`/`nodenm`/...)을 그대로
-반영했을 뿐입니다. 진행하기 전에 브라우저 주소창에 아래 URL을 발급받은
-서비스키로 채워 붙여넣어 `resultCode: "00"`이 오는지 먼저 확인해 주세요:
+**2) 홈 화면 "가까운 정류장" 캡션 — ⚠️ 1순위 API가 현재 막혀 있어 대체 경로로 동작.**
+노선을 고르기 전, 홈 화면 상단 캡션(현재 위치 주변 정류소)은 두 단계로 값을 구합니다
+(`AppState._loadNearestStation`):
+
+1. **TAGO 좌표기반 근접 정류소 조회** — `lib/services/tago_station_service.dart`.
+   TAGO 정류소정보조회 서비스(`BusSttnInfoInqireService`)의
+   `getCrdntPrxmtStaionList`. 전국 아무 정류소나 찾을 수 있는 제대로 된 방법이지만,
+   **2026-09-07 실제 호출 결과 이 프로젝트 키로는 동작하지 않습니다**:
+   `NO_OPENAPI_SERVICE_ERROR` / `returnReasonCode: "12"`.
+   공공데이터포털에서 신청한 것이 "국토교통부(TAGO)_**버스노선정보**"뿐이라,
+   **정류소정보 서비스는 별도 활용신청이 필요**하기 때문으로 보입니다.
+   (같은 키로 `getCtyCodeList`는 `resultCode: "00"` 정상 → 키 자체는 멀쩡합니다.)
+2. **대체: 캐시된 노선의 정류장 좌표** — 1번이 실패하면 `routeCache`에 들어있는
+   노선들(즐겨찾기·최근 검색)의 정류장 좌표 중 현재 위치에서 가장 가까운 것을
+   하버사인으로 고릅니다. 이미 검증된 버스노선정보 API 데이터라 추가 신청이
+   필요 없습니다. 대신 **캐시에 있는 노선 위의 정류장만 후보**이고, 2km보다 멀면
+   (다른 도시 노선만 캐시된 경우 등) 캡션을 비웁니다.
+
+정류소정보 서비스를 나중에 활용신청하면 1번이 자동으로 살아납니다. 신청 후
+아래 URL을 브라우저에 붙여넣어(**인코딩된** 서비스키) `resultCode: "00"`이 오는지
+먼저 확인하세요:
 
 ```
 https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtStaionList?serviceKey=<발급받은 키>&_type=json&gpsLati=37.498&gpsLong=127.028&numOfRows=5&pageNo=1
 ```
 
-(좌표는 강남역 근처 예시입니다.) 응답이 다른 필드명으로 오면
-`TagoNearbyStation.fromJson`(`lib/models/tago.dart`)의 후보 키 목록만 고치면
-됩니다. 실패해도 앱은 멈추지 않고 캡션이 "위치 아이콘을 눌러 확인" 문구로
-조용히 대체됩니다 (`AppState._loadNearestStation`).
+(좌표는 강남역 근처 예시입니다.) 응답 필드명이 다르면
+`TagoNearbyStation.fromJson`(`lib/models/tago.dart`)의 후보 키 목록만 고치면 됩니다.
+
+### 응답 인코딩 — 반드시 `bodyBytes`를 UTF-8로 직접 디코딩
+TAGO는 Content-Type에 charset을 제대로 안 실어줍니다. 그런데 `http` 패키지의
+`Response.body`는 charset이 없으면 **latin1**로 디코딩하기 때문에, 그대로 쓰면
+정류장 이름·도시명 한글이 전부 깨집니다(`"?몄쥌?밸퀧"` 같은 문자).
+그래서 모든 TAGO 응답은 `decodeTagoBody()`(`tago_bus_service.dart`)를 거쳐
+`utf8.decode(res.bodyBytes)`로 읽습니다. 브라우저로 같은 URL을 열었을 때
+한글이 깨져 보이는 것도 같은 원인이며, 그건 표시 문제일 뿐 데이터는 정상입니다.
 
 ### 지도 SDK — 실제 카카오맵을 `map` 화면에 연결 완료 (⚠️ JS 키 없으면 플레이스홀더)
 `map` 화면(`lib/screens/map_screen.dart`)은 이제 조건부로 두 가지 중 하나를 씁니다:

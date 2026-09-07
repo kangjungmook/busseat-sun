@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../logic/geo.dart';
 import '../logic/sun_calc.dart';
 import '../models/route.dart';
 import '../state/app_state.dart';
@@ -282,15 +281,15 @@ class _FavoriteRow extends StatelessWidget {
   }
 }
 
-/// TAGO 좌표기반 근접 정류소 조회(TagoStationService, 미검증) 결과 캡션.
-/// 위치를 아직 안 받았거나 API가 실패하면 조용히 안내 문구로 대체한다.
+/// "가까운 정류장" 캡션. 값은 [AppState.nearbyStationLabel]이 채운다
+/// (TAGO 좌표기반 조회 → 실패 시 캐시된 노선 정류장 순).
+/// 위치를 아직 안 받았거나 후보가 없으면 조용히 안내 문구로 대체한다.
 String _nearbyStationCaption(AppState state) {
   if (state.nearbyStationLoading) return '가까운 정류장 찾는 중…';
-  final st = state.nearestKnownStation;
-  final loc = state.location;
-  if (st == null || loc == null) return '위치 아이콘을 눌러 확인';
-  final m = haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: st.lat, lng2: st.lng).round();
-  return '${st.nodeName} · ${m}m';
+  if (state.location == null) return '위치 아이콘을 눌러 확인';
+  final near = state.nearbyStationLabel;
+  if (near == null) return '주변 정류장 정보 없음';
+  return '${near.name} · ${near.meters.round()}m';
 }
 
 class _RecentsRow extends StatelessWidget {

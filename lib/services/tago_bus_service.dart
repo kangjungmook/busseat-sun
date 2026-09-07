@@ -17,6 +17,18 @@ import '../models/tago.dart';
 /// [findRouteNationwide]가 도시 하나에서 노선을 찾았을 때 함께 돌려주는 짝.
 typedef TagoRouteMatch = ({TagoCity city, TagoRoute route});
 
+/// TAGO 응답 본문을 **항상 UTF-8로** 읽는다.
+///
+/// TAGO는 Content-Type에 charset을 제대로 안 실어준다. 그런데 `http` 패키지의
+/// `Response.body`는 charset이 없으면 **latin1**로 디코딩해서(패키지 기본값),
+/// 정류장 이름·도시명 같은 한글이 전부 깨진 문자로 들어온다.
+/// (브라우저로 같은 URL을 열어도 "?몄쥌?밸퀧"처럼 깨져 보이는 게 같은 이유다.)
+/// 그래서 `body` 대신 `bodyBytes`를 직접 UTF-8로 디코딩한다.
+///
+/// `allowMalformed: true`는 혹시 진짜로 UTF-8이 아닌 응답이 와도 예외 대신
+/// 대체 문자로 넘어가게 해서, 인코딩 하나 때문에 검색 전체가 죽지 않게 한다.
+String decodeTagoBody(http.Response res) => utf8.decode(res.bodyBytes, allowMalformed: true);
+
 class TagoBusService {
   static const String _baseUrl = 'https://apis.data.go.kr/1613000/BusRouteInfoInqireService';
 
@@ -33,15 +45,16 @@ class TagoBusService {
       ...params,
     });
     final res = await http.get(uri);
+    final body = decodeTagoBody(res);
     if (res.statusCode != 200) {
-      throw TagoApiException('HTTP ${res.statusCode}', rawBody: res.body);
+      throw TagoApiException('HTTP ${res.statusCode}', rawBody: body);
     }
 
     late final dynamic decoded;
     try {
-      decoded = jsonDecode(res.body);
+      decoded = jsonDecode(body);
     } catch (_) {
-      throw TagoApiException('JSON 파싱 실패 (XML 에러 응답일 가능성) — rawBody 확인', rawBody: res.body);
+      throw TagoApiException('JSON 파싱 실패 (XML 에러 응답일 가능성) — rawBody 확인', rawBody: body);
     }
 
     // 서비스키 미등록/IP 미등록/활용기간 만료 등 공통 오류는 이 형식으로 온다
@@ -49,16 +62,18 @@ class TagoBusService {
     // {"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":..., "returnAuthMsg":..., "returnReasonCode":...}}}
     final cmmHeader = decoded['OpenAPI_ServiceResponse']?['cmmMsgHeader'];
     if (cmmHeader != null) {
+      // returnAuthMsg는 한글이라 깨져 보일 수 있어 영문 errMsg를 먼저 쓴다
+      // (예: 활용신청 안 된 서비스 → "NO_OPENAPI_SERVICE_ERROR", 코드 12).
       throw TagoApiException(
-        'TAGO 공통 오류(${cmmHeader['returnReasonCode']}): ${cmmHeader['returnAuthMsg']}',
-        rawBody: res.body,
+        'TAGO 공통 오류(${cmmHeader['returnReasonCode']}): ${cmmHeader['errMsg'] ?? cmmHeader['returnAuthMsg']}',
+        rawBody: body,
       );
     }
 
     final header = decoded['response']?['header'];
     final resultCode = header?['resultCode']?.toString();
     if (resultCode != null && resultCode != '00') {
-      throw TagoApiException('TAGO 오류 $resultCode: ${header?['resultMsg']}', rawBody: res.body);
+      throw TagoApiException('TAGO 오류 $resultCode: ${header?['resultMsg']}', rawBody: body);
     }
     return decoded as Map<String, dynamic>;
   }
