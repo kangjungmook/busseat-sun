@@ -1,0 +1,48 @@
+name: sunseat
+description: "햇살좌석 — 버스 탑승 직전 3초, 어느 쪽 창가가 좋은지 알려주는 앱"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  provider: ^6.1.2
+  kakao_flutter_sdk_user: ^1.9.6
+  geolocator: ^12.0.0
+  sensors_plus: ^5.0.0
+  flutter_compass: ^0.8.1
+  camera: ^0.11.0+2
+  shared_preferences: ^2.3.3
+  http: ^1.2.2
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icon/
+
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/PretendardVariable.ttf
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#F59E0B"
+  adaptive_icon_foreground: "assets/icon/app_icon_fg.png"
