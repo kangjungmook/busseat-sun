@@ -97,13 +97,26 @@ https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtStaionList
 - **그 외(JS 키 없음 / 좌표 없는 시드 데이터 등)** → 기존 도로 그리드
   플레이스홀더(`RouteMapPainter`)로 조용히 대체 — 화면이 깨지지 않습니다.
 
-**당신이 해야 할 것 (JS 키 발급 시)**:
-1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
-2. 플랫폼 → Web → 사이트 도메인에 `https://appassets.androidplatform.net` 등록
-   (Android WebView가 앱 내 HTML을 서빙할 때 쓰는 가상 도메인)
-3. iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 이 세션에서 기기로 확인하지
-   못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
-4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
+**JS 키를 쓰기 위해 콘솔에서 해야 할 것** (2026-09 기준 — 카카오 디벨로퍼스가
+개편돼서 예전 경로 `플랫폼 → Web → 사이트 도메인`은 더 이상 없습니다):
+
+1. **JavaScript 키 발급/확인**: 앱 관리 → `앱` → **`플랫폼 키`** → 스크롤해서
+   **`JavaScript 키`** 섹션 (네이티브 앱 키·REST API 키와 각각 다른 키다)
+2. **도메인 등록**: 같은 `JavaScript 키` 카드 안의 **`JavaScript SDK 도메인`** 에
+   `https://appassets.androidplatform.net` 추가
+   (Android WebView가 앱 내 asset을 서빙할 때 쓰는 가상 도메인)
+3. **카카오맵 API 활성화**: 2026-07-21부터 이용 절차가 바뀌어서, 도메인 등록만으로는
+   부족하고 앱 관리 페이지에서 카카오맵 API를 활성화해야 합니다. 무료 쿼터는
+   **개발자 계정 기준 첫 번째로 활성화한 앱에만** 제공되므로, 다른 앱에서 이미
+   카카오맵을 켠 적이 있다면 이 앱은 비즈월렛 연결(유료 API)이 필요할 수 있습니다.
+4. `secrets/dart_defines.json`의 `KAKAO_JS_KEY` 채우기 (gitignored — 저장소엔 안 올라감)
+
+iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 확인하지 못했습니다 —
+iOS 빌드 시 등록할 도메인을 다시 확인해야 할 수 있습니다.
+
+> 위 콘솔 경로/정책은 검색 결과 기준으로만 확인했고 공식 문서를 직접 열어보진
+> 못했습니다 (샌드박스에서 `developers.kakao.com` 접근 차단). 화면이 다르면
+> 카카오 디벨로퍼스 공지를 우선하세요.
 
 이 세션도 카카오맵 JS SDK 자체를 실기기에서 눌러보진 못했습니다 — WebView 로딩,
 마커 타이밍(SDK 로드 완료 전에 `setStops`가 불릴 수 있어 500ms 뒤 한 번 더

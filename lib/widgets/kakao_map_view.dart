@@ -19,9 +19,11 @@ class MapStop {
 /// 카카오맵 JavaScript SDK를 WebView에 올린 실제 지도.
 ///
 /// 미리 채워둔 [KakaoJsConfig.jsKey]가 없으면 안내 문구만 보여준다.
-/// 도메인은 카카오 디벨로퍼스 → 플랫폼 → Web에
-/// `https://appassets.androidplatform.net` 을 등록해야 한다
-/// (Android WebView의 `loadFlutterAsset`가 앱 내 asset을 서빙하는 가상 도메인).
+/// 도메인은 카카오 디벨로퍼스 → 앱 → `플랫폼 키` → `JavaScript 키` 섹션의
+/// `JavaScript SDK 도메인`에 `https://appassets.androidplatform.net`을 등록해야
+/// 한다 (Android WebView의 `loadFlutterAsset`가 앱 내 asset을 서빙하는 가상
+/// 도메인). 2026-07-21부터는 도메인 등록과 별개로 앱 관리 페이지에서 카카오맵
+/// API 활성화도 필요하다 — 자세한 건 README "지도 SDK" 절 참고.
 /// iOS `loadFlutterAsset`가 실제로 어떤 오리진을 쓰는지는 이 세션에서
 /// 기기로 확인하지 못했다 — iOS 빌드 시 등록 도메인을 다시 확인해야 한다.
 ///
