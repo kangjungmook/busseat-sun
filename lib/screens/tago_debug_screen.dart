@@ -21,7 +21,12 @@ class TagoDebugScreen extends StatefulWidget {
 }
 
 class _TagoDebugScreenState extends State<TagoDebugScreen> {
-  final _cityCodeCtrl = TextEditingController(text: '11');
+  // 기본값을 '11'로 두지 말 것 — TAGO 도시코드 목록(getCtyCodeList)에 11은
+  // 없다. 2026-09-07 실제 응답 기준 목록은 12, 21~26, 39, 31010… 순으로
+  // 시작한다. 없는 코드로 조회하면 에러가 아니라 resultCode "00" +
+  // totalCount 0이 와서 "API가 고장났나?"로 오해하기 쉽다.
+  // '1'번 버튼(도시코드 목록)으로 실제 코드를 먼저 확인하고 넣는 게 맞다.
+  final _cityCodeCtrl = TextEditingController(text: '12');
   final _routeNoCtrl = TextEditingController(text: '9401');
   final _routeIdCtrl = TextEditingController();
 
