@@ -8,9 +8,9 @@ import '../theme/tokens.dart';
 import '../widgets/common.dart';
 
 /// 개발용 화면 — TAGO API를 실제로 호출해보고 결과(성공/실패, 원본 응답)를
-/// 그대로 보여준다. 이 세션은 data.go.kr 접속이 막혀 있어 직접 호출해서
-/// 검증하지 못했기 때문에, 실기기에서 이 화면으로 테스트해보고 결과를
-/// 알려주면 lib/services/tago_bus_service.dart를 바로 맞출 수 있다.
+/// 그대로 보여준다. "★ 전국에서 routeNo 자동 검색"이 실제 앱에서 쓰는
+/// 방식과 같다 — cityCode를 몰라도 번호만 넣으면 앱이 알아서 찾는다.
+/// 1/2/3번은 각 오퍼레이션을 개별로 찔러보는 저수준 디버그용.
 class TagoDebugScreen extends StatefulWidget {
   final AppPalette palette;
 
@@ -67,6 +67,18 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
     return '✅ 정류소 ${stops.length}개\n\n' + stops.map((s) => '${s.order ?? '-'}. ${s.nodeName} (${s.nodeId}) lat=${s.lat} lng=${s.lng}').join('\n');
   }
 
+  Future<String> _testNationwideSearch() async {
+    final routeNo = _routeNoCtrl.text.trim();
+    final matches = await TagoBusService.findRouteNationwide(
+      routeNo,
+      onProgress: (done, total) {
+        if (mounted) setState(() => _output = '전국 도시 검색 중… $done / $total');
+      },
+    );
+    if (matches.isEmpty) return '❌ 전국 어디에도 "$routeNo" 노선이 없습니다 (번호를 확인하세요)';
+    return '✅ ${matches.length}건 발견\n\n' + matches.map((m) => '${m.city.name} (cityCode=${m.city.code})\n  routeId=${m.route.routeId}  routeNo=${m.route.routeNo}  ${m.route.startNodeName} → ${m.route.endNodeName}').join('\n\n');
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -110,8 +122,9 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
               runSpacing: 8,
               children: [
                 _btn('1. 도시코드 목록', () => _run(_testCityCodes), palette),
-                _btn('2. 노선 검색', () => _run(_testRouteSearch), palette),
+                _btn('2. 노선 검색 (도시 지정)', () => _run(_testRouteSearch), palette),
                 _btn('3. 정류소(좌표) 조회', () => _run(_testRouteStops), palette),
+                _btn('★ 전국에서 routeNo 자동 검색', () => _run(_testNationwideSearch), palette),
               ],
             ),
             const SizedBox(height: 12),

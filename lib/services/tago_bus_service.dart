@@ -14,8 +14,14 @@ import '../models/tago.dart';
 /// 4개 오퍼레이션 전부 **같은 base URL** 아래에 있다 — getCtyCodeList도
 /// 별도 서비스(BusSttnInfoInqireService)가 아니라 여기 있다. 처음에 웹 검색만
 /// 보고 정류소 API 쪽으로 잘못 짚었던 부분을 문서로 바로잡았다.
+/// [findRouteNationwide]가 도시 하나에서 노선을 찾았을 때 함께 돌려주는 짝.
+typedef TagoRouteMatch = ({TagoCity city, TagoRoute route});
+
 class TagoBusService {
   static const String _baseUrl = 'https://apis.data.go.kr/1613000/BusRouteInfoInqireService';
+
+  // 도시코드는 자주 바뀌지 않으니 앱 켜 있는 동안은 다시 안 불러온다.
+  static List<TagoCity>? _cityCache;
 
   static Future<Map<String, dynamic>> _get(String operation, Map<String, String> params) async {
     if (!TagoConfig.isConfigured) {
@@ -67,10 +73,51 @@ class TagoBusService {
     return [item as Map<String, dynamic>];
   }
 
-  /// [도시코드 목록 조회] getCtyCodeList — 파라미터 없음.
-  static Future<List<TagoCity>> getCityCodes() async {
+  /// [도시코드 목록 조회] getCtyCodeList — 파라미터 없음. 세션 내 캐싱.
+  static Future<List<TagoCity>> getCityCodes({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cityCache != null) return _cityCache!;
     final decoded = await _get('getCtyCodeList', {});
-    return _items(decoded).map(TagoCity.fromJson).toList();
+    final cities = _items(decoded).map(TagoCity.fromJson).toList();
+    _cityCache = cities;
+    return cities;
+  }
+
+  /// 노선번호만 알고 도시를 모를 때 — 전국 도시코드를 순회하며 검색한다.
+  /// cityCode가 API 필수값이라 "전국 검색"이 따로 없어서, 앱이 대신
+  /// 도시 목록을 한 번 받아 여러 개를 동시에(과금·요청량 제한을 고려해
+  /// [concurrency]개씩 묶어서) 조회하는 방식으로 흉내낸다.
+  ///
+  /// 사용자가 도시코드를 몰라도(=대부분의 경우) 번호만 넣으면 앱이 알아서
+  /// 찾도록 하기 위한 함수 — [onProgress]로 진행 상황(몇 개 도시 중 몇 번째)을
+  /// 알려줄 수 있다.
+  static Future<List<TagoRouteMatch>> findRouteNationwide(
+    String routeNo, {
+    int concurrency = 8,
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final cities = await getCityCodes();
+    final matches = <TagoRouteMatch>[];
+    var done = 0;
+
+    for (var i = 0; i < cities.length; i += concurrency) {
+      final batch = cities.skip(i).take(concurrency).toList();
+      final batchResults = await Future.wait(batch.map((city) async {
+        try {
+          final routes = await searchRoutesByNumber(cityCode: city.code, routeNo: routeNo);
+          return routes.map((r) => (city: city, route: r)).toList();
+        } catch (_) {
+          // 개별 도시 조회 실패(그 도시엔 해당 노선유형 자체가 없는 등)는
+          // 무시하고 계속 진행 — 전체 검색을 막을 이유가 아니다.
+          return <TagoRouteMatch>[];
+        }
+      }));
+      for (final r in batchResults) {
+        matches.addAll(r);
+      }
+      done += batch.length;
+      onProgress?.call(done, cities.length);
+    }
+    return matches;
   }
 
   /// [노선번호목록 조회] getRouteNoList — cityCode 필수, routeNo 옵션(비우면 그 도시 전체 노선).
