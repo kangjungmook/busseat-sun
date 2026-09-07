@@ -49,21 +49,23 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
    못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
 4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
 
-### 노선/정류장 데이터 — TAGO 클라이언트 만듦, 실기기 테스트 필요
+### 노선/정류장 데이터 — API 스펙 확정, 실제 연결은 아직
 `lib/models/route.dart`의 6개 노선은 아직 시드 데이터 그대로입니다 (AppState는 이걸 계속 씀).
-`lib/services/tago_bus_service.dart`에 실제 호출 코드를 만들었지만, **부분 검증** 상태입니다:
+`lib/services/tago_bus_service.dart` / `lib/models/tago.dart`는 이제 **공식 문서 기준으로
+확정**되어 있습니다 — 사용자가 활용신청 승인 후 받은
+"오픈API활용가이드_국토교통부(TAGO)_버스노선정보v1.0.docx"를 그대로 반영했고,
+`getRouteNoList`는 실제 호출로도 성공(`resultCode 00`)을 확인했습니다.
 
-- 이 세션은 `apis.data.go.kr` / `www.data.go.kr` 접속이 네트워크 정책으로 막혀 있어
-  직접 호출해서 확인하지 못했습니다. 웹 검색으로 base URL 2개, 오퍼레이션 이름 3개,
-  `getRouteAcctoThrghSttnList` 응답 필드(`citycode`/`gpslati`/`gpslong`/`nodeid`/`nodenm`/`nodeno`)까지는
-  확인했지만, `getRouteNoList` 응답 필드명과 도시코드 값(서울=11인지 등)은 **추정치**입니다.
-- **`설정 → 개발자용 → TAGO API 테스트`** 화면을 만들어뒀습니다. 실기기/에뮬레이터에서
-  1) 도시코드 목록 → 2) 노선 검색 → 3) 정류소(좌표) 조회 순서로 눌러보면 원본 JSON이 그대로
-  뜹니다. 에러가 나거나 필드가 비어있으면 그 화면 내용을 그대로 캡처해서 알려주세요 —
-  `tago_bus_service.dart`/`lib/models/tago.dart`를 바로 맞추고, 확인되면 `AppState`가
-  시드 데이터 대신 이 API를 쓰도록 연결하겠습니다.
-- 참고로 9401/3401/1550 같은 광역·직행좌석버스는 서울이 아니라 실제 운행 지자체
-  (성남시·수원시 등)의 cityCode로 조회해야 나올 수 있습니다 — 도시코드 목록에서 확인 필요.
+- base URL 1개, 오퍼레이션 4개(`getRouteNoList`/`getRouteAcctoThrghSttnList`/
+  `getRouteInfoIem`/`getCtyCodeList`) 전부 같은 `BusRouteInfoInqireService` 아래에 있습니다.
+- `설정 → 개발자용 → TAGO API 테스트` 화면(또는 URL을 브라우저 주소창에 직접 붙여넣기)으로
+  실제로 확인 가능합니다.
+- **다음 단계**: `getCtyCodeList`로 도시코드 전체 목록을 받아서, 지금 시드 데이터의
+  6개 노선(9401/9404/3401/1550/140/472)이 각각 어느 cityCode에 등록돼 있는지 찾아야
+  `AppState`가 시드 대신 실제 API를 쓰도록 연결할 수 있습니다. 특히 9401/3401/1550 같은
+  광역·직행좌석버스는 서울이 아니라 실제 운행 지자체(성남시 등) 코드일 가능성이 높습니다.
+- 정류소 좌표(`gpslati`/`gpslong`)까지 확보되면 `RouteDir.bearing`(진행 방위)도 하드코딩
+  대신 기점→종점 좌표로 실제 계산할 수 있게 됩니다 — 지도(`KakaoMapView`) 연결의 전제조건이기도 합니다.
 
 ### 기타
 - 위치: `geolocator`로 실제 GPS 좌표를 가져오지만, 좌표→정류장 매칭(역지오코딩)은

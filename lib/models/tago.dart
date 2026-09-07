@@ -1,5 +1,5 @@
-/// TAGO 응답을 관대하게 파싱하기 위한 헬퍼 — 필드명이 문서마다 조금씩 다르게
-/// 표기되는 경우가 있어 후보 키를 여러 개 시도한다.
+/// TAGO 응답 모델. 필드명은 "오픈API활용가이드_국토교통부(TAGO)_버스노선정보v1.0"
+/// 공식 문서(2026-09-07 확인)를 그대로 반영한다 — 더 이상 추정이 아니다.
 String? _pick(Map<String, dynamic> m, List<String> keys) {
   for (final k in keys) {
     final v = m[k];
@@ -14,32 +14,40 @@ double? _pickDouble(Map<String, dynamic> m, List<String> keys) {
   return double.tryParse(s);
 }
 
-/// 도시코드 목록 조회(getCtyCodeList) 결과 1건.
+int? _pickInt(Map<String, dynamic> m, List<String> keys) {
+  final s = _pick(m, keys);
+  if (s == null) return null;
+  return int.tryParse(s);
+}
+
+/// [도시코드 목록 조회] getCtyCodeList 결과 1건.
 class TagoCity {
-  final String code;
-  final String name;
+  final String code; // citycode
+  final String name; // cityname
 
   const TagoCity({required this.code, required this.name});
 
   factory TagoCity.fromJson(Map<String, dynamic> json) {
     return TagoCity(
-      code: _pick(json, ['citycode', 'cityCode']) ?? '',
-      name: _pick(json, ['cityname', 'citynm', 'cityName']) ?? '',
+      code: _pick(json, ['citycode']) ?? '',
+      name: _pick(json, ['cityname']) ?? '',
     );
   }
 }
 
-/// 노선번호 목록 조회(getRouteNoList) 결과 1건.
-///
-/// ⚠️ routeno/routetp/startnodenm/endnodenm 필드명은 이 세션이 실제로 호출해
-/// 확인한 게 아니라, 같은 TAGO 계열 API들의 공통 명명 규칙(정류소 API의
-/// nodenm/nodeno 처럼 약어+ nm/no 접미사)을 따른다는 전제로 추정한 것이다.
+/// [노선번호목록 조회] getRouteNoList / [노선정보항목 조회] getRouteInfoIem 공통 필드.
 class TagoRoute {
-  final String routeId;
-  final String routeNo;
-  final String? routeType;
-  final String? startNodeName;
-  final String? endNodeName;
+  final String routeId; // routeid
+  final String routeNo; // routeno
+  final String? routeType; // routetp — 예: '마을버스', '직행좌석버스'
+  final String? startNodeName; // startnodenm — 기점
+  final String? endNodeName; // endnodenm — 종점
+  final String? startVehicleTime; // startvehicletime — 첫차 HHMM
+  final String? endVehicleTime; // endvehicletime — 막차 HHMM
+  /// getRouteInfoIem에서만 오는 배차간격(분). getRouteNoList엔 없다.
+  final int? intervalWeekday; // intervaltime
+  final int? intervalSaturday; // intervalsattime
+  final int? intervalSunday; // intervalsuntime
   final Map<String, dynamic> raw;
 
   const TagoRoute({
@@ -48,53 +56,65 @@ class TagoRoute {
     this.routeType,
     this.startNodeName,
     this.endNodeName,
+    this.startVehicleTime,
+    this.endVehicleTime,
+    this.intervalWeekday,
+    this.intervalSaturday,
+    this.intervalSunday,
     required this.raw,
   });
 
   factory TagoRoute.fromJson(Map<String, dynamic> json) {
     return TagoRoute(
-      routeId: _pick(json, ['routeid', 'routeId']) ?? '',
-      routeNo: _pick(json, ['routeno', 'routeNo']) ?? '',
-      routeType: _pick(json, ['routetp', 'routeTp', 'routeType']),
-      startNodeName: _pick(json, ['startnodenm', 'startNodeNm']),
-      endNodeName: _pick(json, ['endnodenm', 'endNodeNm']),
+      routeId: _pick(json, ['routeid']) ?? '',
+      routeNo: _pick(json, ['routeno']) ?? '',
+      routeType: _pick(json, ['routetp']),
+      startNodeName: _pick(json, ['startnodenm']),
+      endNodeName: _pick(json, ['endnodenm']),
+      startVehicleTime: _pick(json, ['startvehicletime']),
+      endVehicleTime: _pick(json, ['endvehicletime']),
+      intervalWeekday: _pickInt(json, ['intervaltime']),
+      intervalSaturday: _pickInt(json, ['intervalsattime']),
+      intervalSunday: _pickInt(json, ['intervalsuntime']),
       raw: json,
     );
   }
 }
 
-/// 노선별 경유 정류소 목록 조회(getRouteAcctoThrghSttnList) 결과 1건.
-/// citycode/gpslati/gpslong/nodeid/nodenm/nodeno 는 웹 검색으로 확인됨.
-/// nodeord(경유 순번)/updowncd(상하행)는 같은 계열 API의 통상적인 필드명을
-/// 반영한 추정치라 실제 응답에서 다를 수 있다.
+/// [노선별경유정류소목록 조회] getRouteAcctoThrghSttnList 결과 1건.
 class TagoRouteStop {
-  final String nodeId;
-  final String nodeName;
-  final String? nodeNo;
-  final double? lat;
-  final double? lng;
-  final int? order;
+  final String routeId; // routeid
+  final String nodeId; // nodeid — 정류소ID
+  final String nodeName; // nodenm — 정류소명
+  final String? nodeNo; // nodeno — 정류소번호 (옵션)
+  final int? order; // nodeord — 경유 순번
+  final double? lat; // gpslati — WGS84 위도
+  final double? lng; // gpslong — WGS84 경도
+  final int? upDownCode; // updowncd — 0:상행, 1:하행 (옵션)
   final Map<String, dynamic> raw;
 
   const TagoRouteStop({
+    required this.routeId,
     required this.nodeId,
     required this.nodeName,
     this.nodeNo,
+    this.order,
     this.lat,
     this.lng,
-    this.order,
+    this.upDownCode,
     required this.raw,
   });
 
   factory TagoRouteStop.fromJson(Map<String, dynamic> json) {
-    final orderStr = _pick(json, ['nodeord', 'nodeOrd']);
     return TagoRouteStop(
-      nodeId: _pick(json, ['nodeid', 'nodeId']) ?? '',
-      nodeName: _pick(json, ['nodenm', 'nodeNm']) ?? '',
-      nodeNo: _pick(json, ['nodeno', 'nodeNo']),
-      lat: _pickDouble(json, ['gpslati', 'gpsLati']),
-      lng: _pickDouble(json, ['gpslong', 'gpsLong']),
-      order: orderStr == null ? null : int.tryParse(orderStr),
+      routeId: _pick(json, ['routeid']) ?? '',
+      nodeId: _pick(json, ['nodeid']) ?? '',
+      nodeName: _pick(json, ['nodenm']) ?? '',
+      nodeNo: _pick(json, ['nodeno']),
+      order: _pickInt(json, ['nodeord']),
+      lat: _pickDouble(json, ['gpslati']),
+      lng: _pickDouble(json, ['gpslong']),
+      upDownCode: _pickInt(json, ['updowncd']),
       raw: json,
     );
   }
