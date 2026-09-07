@@ -21,6 +21,7 @@ enum AppScreen {
   map,
   settings,
   widget,
+  tagoDebug,
 }
 
 const List<String> kNumKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'ABC', '0', '⌫'];

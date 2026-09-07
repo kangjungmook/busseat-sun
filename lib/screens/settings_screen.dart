@@ -154,6 +154,24 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            SectionLabel('개발자용', palette: palette),
+            Material(
+              color: palette.surfaceColor,
+              borderRadius: BorderRadius.circular(18),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => state.goto(AppScreen.tagoDebug),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text('TAGO API 테스트', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.text))),
+                      Icon(Icons.chevron_right, size: 15, color: palette.textMuted),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
             Center(
               child: Text('햇살좌석 v1.2.0 · 좌석 데이터 09-07', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12, color: palette.textMuted)),

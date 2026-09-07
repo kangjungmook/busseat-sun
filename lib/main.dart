@@ -11,6 +11,7 @@ import 'screens/result_screen.dart';
 import 'screens/seat_map_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/stop_picker_screen.dart';
+import 'screens/tago_debug_screen.dart';
 import 'screens/today_screen.dart';
 import 'screens/widget_screen.dart';
 import 'state/app_state.dart';
@@ -111,6 +112,9 @@ class AppRoot extends StatelessWidget {
         break;
       case AppScreen.widget:
         body = WidgetScreen(palette: palette);
+        break;
+      case AppScreen.tagoDebug:
+        body = TagoDebugScreen(palette: palette);
         break;
     }
 
