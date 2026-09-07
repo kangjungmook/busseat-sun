@@ -163,17 +163,37 @@ class TagoBusService {
   }
 
   /// [노선별경유정류소목록 조회] getRouteAcctoThrghSttnList — 정류소 이름+좌표+순번.
+  ///
+  /// 정류소가 [pageSize]개를 넘으면 `totalCount`를 보고 다음 페이지까지 이어
+  /// 받는다. 한 페이지만 받으면 긴 노선의 뒷부분이 통째로 잘려서, 종점이
+  /// 엉뚱한 정류장이 되고 그걸로 계산한 진행 방위(bearing)까지 틀어진다
+  /// — 좌석 판정이 조용히 잘못되는 경로라 페이징을 넣었다.
   static Future<List<TagoRouteStop>> getRouteStops({
     required String cityCode,
     required String routeId,
+    int pageSize = 200,
+    int maxPages = 10,
   }) async {
-    final decoded = await _get('getRouteAcctoThrghSttnList', {
-      'cityCode': cityCode,
-      'routeId': routeId,
-      'pageNo': '1',
-      'numOfRows': '100',
-    });
-    return _items(decoded).map(TagoRouteStop.fromJson).toList();
+    final stops = <TagoRouteStop>[];
+    var pageNo = 1;
+
+    while (pageNo <= maxPages) {
+      final decoded = await _get('getRouteAcctoThrghSttnList', {
+        'cityCode': cityCode,
+        'routeId': routeId,
+        'pageNo': '$pageNo',
+        'numOfRows': '$pageSize',
+      });
+      final items = _items(decoded);
+      stops.addAll(items.map(TagoRouteStop.fromJson));
+
+      // totalCount는 문자열로 올 수도 숫자로 올 수도 있다 (routeno가 "B7"/430
+      // 둘 다로 오는 것과 같은 이유) — toString 후 파싱한다.
+      final total = int.tryParse(decoded['response']?['body']?['totalCount']?.toString() ?? '');
+      if (items.isEmpty || total == null || stops.length >= total) break;
+      pageNo++;
+    }
+    return stops;
   }
 }
 

@@ -56,7 +56,12 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 확인했지만, 여러 도시 순회(`findRouteNationwide`) → 정류소 조회 → 방향 분리 →
 결과 화면까지 이어지는 전체 흐름은 `flutter analyze`/`flutter test`로 타입/구조만
 검증했고 실제 기기에서 눌러본 적은 없습니다. 특히:
-- `updowncd`로 상행/하행을 정확히 나눌 수 있는지 (문서엔 옵션 필드라 안 올 수도 있음)
+- ~~`updowncd`로 상행/하행을 정확히 나눌 수 있는지~~ → **✅ 해결됨 (2026-09-07 실제 응답).**
+  방면은 `updowncd`가 아니라 **routeId 자체가 다르게** 옵니다. 세종시(cityCode 12)
+  `B7`을 조회하면 `SJB271000805`(집현동→비하종점)와 `SJB271000806`(비하종점→집현동)이
+  같은 `routeno`로 따로 잡힙니다. `TagoRouteRepository.search`가 routeId마다
+  `RouteDir`을 만들기 때문에 이 케이스는 이미 올바르게 처리됩니다
+  (`updowncd`가 오는 경우에도 그 안에서 한 번 더 나누므로 양쪽 다 커버).
 - 소요시간(`durationMin`)은 TAGO가 안 줘서 정류장 수 기반 추정치입니다 — 실제 값 아님
 - 전국 도시(~200개) 순회라 첫 검색이 몇 초 걸릴 수 있습니다 (동시 8개씩 처리, 캐시되면 이후엔 즉시)
 - **⚠️ 도시코드 목록에 `11`(서울)이 없습니다.** 2026-09-07 `getCtyCodeList`를 실제로
@@ -68,6 +73,7 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
   (앱의 TAGO 테스트 화면은 UTF-8로 제대로 디코딩하니 거기서 보면 됩니다).
   - 없는 도시코드로 조회하면 **에러가 아니라** `resultCode: "00"` + `totalCount: 0`이
     옵니다 — "API가 고장났나?"로 오해하기 쉬우니 주의.
+  - 확인된 코드: **`12` = 세종특별자치시** (routeId 접두사 `SJB`, totalCount 135).
   - 시드 데이터(`kSeedRoutes`)의 `140`, `472` 같은 서울 간선/지선 노선은 실제
     검색으로는 못 찾을 수 있습니다.
   - 서울 노선까지 지원하려면 TOPIS API를 별도로 붙여야 합니다 (미착수).
