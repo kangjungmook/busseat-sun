@@ -202,10 +202,15 @@ TAGO는 Content-Type에 charset을 제대로 안 실어줍니다. 그런데 `htt
    **`https://localhost`** 추가 — `KakaoJsConfig.sdkDomain`의 기본값과 같은 값이어야
    합니다 (다른 도메인을 쓰려면 `secrets/dart_defines.json`의 `KAKAO_JS_DOMAIN`과
    콘솔 등록값을 같이 바꾸면 됩니다). 아래 "왜 localhost인가" 참고.
-3. **카카오맵 API 활성화**: 2026-07-21부터 이용 절차가 바뀌어서, 도메인 등록만으로는
-   부족하고 앱 관리 페이지에서 카카오맵 API를 활성화해야 합니다. 무료 쿼터는
-   **개발자 계정 기준 첫 번째로 활성화한 앱에만** 제공되므로, 다른 앱에서 이미
-   카카오맵을 켠 적이 있다면 이 앱은 비즈월렛 연결(유료 API)이 필요할 수 있습니다.
+3. **카카오맵 활성화 — 내 애플리케이션 → `제품 설정` → `카카오맵` → 활성화 `ON`.**
+   도메인 등록만으로는 부족합니다. 이 스위치 하나가 **지도 화면(JS SDK)과
+   좌표→행정구역(로컬 API) 둘 다**를 막고 있어서, 꺼져 있으면 이런 응답이 옵니다
+   (키가 틀린 것처럼 보이지만 권한 문제입니다 — 2026-09-08 실제로 겪음):
+   ```json
+   {"errorType":"NotAuthorizedError","message":"App(햇살좌석) disabled OPEN_MAP_AND_LOCAL service."}
+   ```
+   무료 쿼터는 **개발자 계정 기준 첫 번째로 활성화한 앱에만** 제공되므로, 다른 앱에서
+   이미 카카오맵을 켠 적이 있다면 이 앱은 비즈월렛 연결(유료 API)이 필요할 수 있습니다.
 4. `secrets/dart_defines.json`의 `KAKAO_JS_KEY` 채우기 (gitignored — 저장소엔 안 올라감)
 
 **왜 `localhost`인가 (이전 문서의 `appassets.androidplatform.net`은 틀린 값이었습니다)**:

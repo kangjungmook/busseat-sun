@@ -35,6 +35,14 @@ class KakaoRegion {
 /// curl -H "Authorization: KakaoAK <REST API 키>" \
 ///   "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=127.322785&y=36.498135"
 /// ```
+///
+/// **자주 걸리는 함정** — 키가 맞는데도 이런 응답이 오면:
+/// ```json
+/// {"errorType":"NotAuthorizedError","message":"App(햇살좌석) disabled OPEN_MAP_AND_LOCAL service."}
+/// ```
+/// 키 문제가 아니라 **앱에서 카카오맵 제품이 꺼져 있는 것**이다 (2026-09-08 실제로 겪음).
+/// 카카오 디벨로퍼스 → 내 애플리케이션 → **제품 설정 → 카카오맵 → 활성화 ON**.
+/// 같은 스위치가 지도 화면(JS SDK)에도 걸려 있어서, 꺼져 있으면 둘 다 안 된다.
 class KakaoLocalService {
   static const String _url = 'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json';
 
