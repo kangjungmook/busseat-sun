@@ -252,9 +252,23 @@ class _DetailCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          SegmentBar(segments: comp.segments, palette: palette),
-          const SizedBox(height: 10),
-          SegmentLegend(palette: palette),
+          // 정류장 좌표가 없는 노선은 구간 분포를 계산할 수 없다 — 가짜 막대를
+          // 그리느니 그렇다고 말한다.
+          if (comp.hasSegmentData) ...[
+            SegmentBar(segments: comp.segments, meters: comp.segmentMeters, palette: palette),
+            const SizedBox(height: 10),
+            SegmentLegend(palette: palette),
+          ] else
+            Container(
+              height: 36,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(color: palette.subtle, borderRadius: BorderRadius.circular(11)),
+              child: Text(
+                '이 노선은 정류장 좌표가 없어 구간별로 나눌 수 없어요',
+                style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, color: palette.textMuted),
+              ),
+            ),
           const SizedBox(height: 16),
           Row(
             children: [

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,7 +13,6 @@ import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/kakao_map_view.dart';
 import '../widgets/route_map_painter.dart';
-import '../widgets/segment_bar.dart';
 
 class MapScreen extends StatelessWidget {
   final AppPalette palette;
@@ -319,12 +320,15 @@ class _MapSheet extends StatelessWidget {
             children: [
               for (var i = 0; i < comp.segments.length; i++)
                 Expanded(
-                  flex: kSegWeightsUi[i],
+                  // 실제 구간 거리에 비례 (10m 단위, 최소 1)
+                  flex: i < comp.segmentMeters.length ? math.max(1, (comp.segmentMeters[i] / 10).round()) : 1,
                   child: Container(
                     height: 8,
                     margin: EdgeInsets.only(right: i < comp.segments.length - 1 ? 5 : 0),
                     decoration: BoxDecoration(
-                      color: comp.segments[i] == SegKind.shade ? palette.primary : (comp.segments[i] == SegKind.sun ? palette.sunDiscColor : palette.surface.grey),
+                      color: comp.segments[i] == SegKind.shade
+                          ? palette.primary
+                          : (comp.segments[i] == SegKind.sun ? palette.sunDiscColor : palette.surface.grey),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),

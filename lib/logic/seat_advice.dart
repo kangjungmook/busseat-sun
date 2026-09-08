@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import '../models/route.dart';
 import '../theme/tokens.dart';
+import 'geo.dart';
 import 'sun_calc.dart';
 
 /// 좌석 방향 판정 결과 — 앱의 전부.
@@ -23,18 +25,75 @@ class SeatAdvice {
   bool get sunAhead => math.cos(relative * math.pi / 180) > 0;
 }
 
-enum SegKind { shade, sun, under }
+/// 한 구간이 추천 좌석에 어떤 영향을 주는지.
+///
+/// 예전에는 `under`(지하·터널)가 있었는데 **그 데이터가 없다.** 노선번호 해시로
+/// `(i + hash) % 6 == 2`인 구간을 터널이라고 칠했을 뿐이라 삭제했다.
+/// 건물 그림자도 마찬가지로 데이터가 없어서, 여기서 말하는 '그늘'은
+/// **"태양이 반대쪽에 있어 그 창으로 직사광이 안 들어온다"**는 뜻이지
+/// 건물에 가려진다는 뜻이 아니다.
+enum SegKind {
+  /// 추천 좌석 쪽에 직사광이 안 들어오는 구간.
+  shade,
 
-/// 구간 길이 비율 (6분할).
-const List<int> kSegWeights = [14, 22, 9, 26, 11, 18];
+  /// 추천 좌석 쪽으로 해가 드는 구간.
+  sun,
+
+  /// 태양이 진행방향 앞·뒤라 좌우 차이가 거의 없거나, 고도가 낮아 일사가 약한 구간.
+  weak,
+}
+
+/// 측면 일사가 이 값보다 약하면 좌우를 가릴 의미가 없다고 본다.
+const double kWeakSideLoad = 0.15;
+
+/// 노선의 한 토막 — 실제 좌표에서 뽑은 방위·거리와, 그때 태양이 어디 있었는지.
+class RouteSegment {
+  /// 이 구간의 진행 방위(도). 정류장 좌표로 실제 계산한 값.
+  final double bearing;
+
+  /// 구간 길이(m). 막대 폭과 가중 평균에 쓴다 — 예전의 고정 비율
+  /// `[14, 22, 9, 26, 11, 18]`을 대체한다.
+  final double meters;
+
+  /// 진행방향 기준 태양 상대 방위 0~360.
+  final double sunRelative;
+
+  /// 그 시각의 일사 세기 0~1 (= sin 고도).
+  final double intensity;
+
+  const RouteSegment({
+    required this.bearing,
+    required this.meters,
+    required this.sunRelative,
+    required this.intensity,
+  });
+
+  bool get sunOnRight => sunRelative < 180;
+
+  /// 측면 성분 — 태양이 정면/후면이면 0, 정측면이면 1.
+  double get lateral => math.sin(sunRelative * math.pi / 180).abs();
+
+  /// 창으로 실제로 들어오는 직사광 세기.
+  double get sideLoad => intensity * lateral;
+
+  /// [leftSeat]를 추천했을 때 이 구간이 그 좌석에 주는 영향.
+  SegKind kindFor(bool leftSeat) {
+    if (sideLoad < kWeakSideLoad) return SegKind.weak;
+    return (sunOnRight == leftSeat) ? SegKind.shade : SegKind.sun;
+  }
+}
 
 class SeatCalc {
   /// 좌석 방향 판정 — 이 함수가 앱의 전부.
+  ///
+  /// [segments]가 있으면 구간별 실제 방위를 거리로 가중해 판정하고, 좌표가 없어
+  /// 비어 있으면 [fallbackBearing](기점→종점 직선) 하나로 예전처럼 판정한다.
   static SeatAdvice advise({
-    required double busBearing,
+    required double fallbackBearing,
     required int minutes,
     required SunMode mode,
     required SunCalc sun,
+    List<RouteSegment> segments = const [],
     double windowPct = 60,
   }) {
     final az = sun.azimuth(minutes);
@@ -42,9 +101,15 @@ class SeatCalc {
     // 창으로 들어오는 빛이 약해서, 같은 방위라도 좌석 차이가 줄어든다.
     final alt = sun.intensity(minutes);
 
-    final rel = ((az - busBearing) % 360 + 360) % 360;
+    // 대표 방위: 구간이 있으면 거리로 가중한 실제 주행 방위, 없으면 직선.
+    final rel = segments.isEmpty
+        ? ((az - fallbackBearing) % 360 + 360) % 360
+        : _weightedRelative(segments);
+
     final sunOnRight = rel < 180;
-    final leftSeat = (mode == SunMode.shade) ? sunOnRight : !sunOnRight;
+    final leftSeat = segments.isEmpty
+        ? ((mode == SunMode.shade) ? sunOnRight : !sunOnRight)
+        : preferLeftSeat(segments, mode);
 
     final sideStrength = (math.sin(rel * math.pi / 180)).abs();
     final base = 52 + 40 * (1 - alt * sideStrength);
@@ -55,41 +120,128 @@ class SeatCalc {
     return SeatAdvice(leftSeat: leftSeat, pct: pct, sunOnRight: sunOnRight, relative: rel);
   }
 
-  /// 노선을 6개 구간으로 나눠 shade/sun/under로 분류.
-  /// 노선번호 해시로 결정론적 생성 — 프로덕션에선 건물 그림자 데이터로 교체.
-  static List<SegKind> segments(String routeNo, int dirIndex, int minutes, SunMode mode, SunCalc sun) {
-    final hash = (routeNo.codeUnitAt(0) * 7 + routeNo.length * 13 + dirIndex * 29) % 5;
-    final d = sun.dayProgress(minutes);
-    return List.generate(6, (i) {
-      if ((i + hash) % 6 == 2) return SegKind.under;
-      final good = ((i * 3 + hash + (d * 4).round()) % 5) != 0;
-      final target = (mode == SunMode.shade) ? SegKind.shade : SegKind.sun;
-      final other = (mode == SunMode.shade) ? SegKind.sun : SegKind.shade;
-      return good ? target : other;
-    });
+  /// 구간들의 상대 방위를 거리·일사로 가중한 대표값.
+  /// 각도라서 산술 평균이 아니라 벡터 평균으로 더한다 (359°와 1°의 평균은 0°다).
+  static double _weightedRelative(List<RouteSegment> segments) {
+    var x = 0.0, y = 0.0;
+    for (final s in segments) {
+      final w = s.meters * (0.2 + s.intensity); // 밤 구간도 방위 정보는 남긴다
+      x += math.cos(s.sunRelative * math.pi / 180) * w;
+      y += math.sin(s.sunRelative * math.pi / 180) * w;
+    }
+    if (x == 0 && y == 0) return 0;
+    return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
   }
 
-  /// 구간 지정(승차→하차)이 있을 때의 windowPct 계산 — 지정 구간과 겹치는 세그먼트만 가중 평균.
-  static double windowPct(
-    List<SegKind> kinds,
-    int boardIdx,
-    int alightIdx,
-    int lastIdx,
-    SunMode mode,
-  ) {
-    final winA = boardIdx / lastIdx * 100;
-    final winB = alightIdx / lastIdx * 100;
-    final total = kSegWeights.reduce((a, b) => a + b);
-    final target = (mode == SunMode.shade) ? SegKind.shade : SegKind.sun;
-    double cum = 0, hit = 0, span = 0;
-    for (var i = 0; i < 6; i++) {
-      final a = cum / total * 100, b = (cum + kSegWeights[i]) / total * 100;
-      cum += kSegWeights[i];
-      final overlap = math.max(0, math.min(b, winB) - math.max(a, winA));
-      span += overlap;
-      if (kinds[i] == target) hit += overlap;
+  /// 승차→하차 구간을 실제 좌표로 잘라 [RouteSegment] 목록을 만든다.
+  ///
+  /// 예전에는 노선번호 해시로 만들어냈다:
+  /// `(routeNo.codeUnitAt(0) * 7 + ...) % 5` — 노선이 어디로 가는지, 해가 어디
+  /// 있는지와 아무 상관이 없는 값이었다. 지금은 TAGO가 준 정류장 좌표로
+  /// 구간별 진행 방위와 거리를 구하고, 그 구간을 지날 시각의 태양 위치를 쓴다.
+  ///
+  /// 좌표가 없는 노선이면 **빈 목록**을 돌려준다 — 없는 데이터를 지어내느니
+  /// 화면에서 "구간 정보 없음"이라고 말하는 게 맞다.
+  ///
+  /// [durationMin]은 TAGO가 주지 않아 정류장 수로 추정한 값이라, 구간별 통과
+  /// 시각도 그만큼 근사다. 다만 한 노선을 지나는 동안 태양은 크게 움직이지
+  /// 않아서(1시간에 약 15°) 좌우 판정이 뒤집힐 정도는 아니다.
+  static List<RouteSegment> buildSegments({
+    required RouteDir dir,
+    required int boardIdx,
+    required int alightIdx,
+    required int startMinutes,
+    required int durationMin,
+    required SunCalc sun,
+    int maxSegments = 6,
+  }) {
+    // 승차~하차 사이에서 양 끝 좌표가 다 있는 구간만 모은다.
+    final legs = <({GeoPoint a, GeoPoint b, double meters})>[];
+    for (var i = boardIdx; i < alightIdx && i + 1 < dir.stops.length; i++) {
+      final a = dir.coordAt(i), b = dir.coordAt(i + 1);
+      if (a == null || b == null) continue;
+      final m = haversineMeters(lat1: a.lat, lng1: a.lng, lat2: b.lat, lng2: b.lng);
+      if (m <= 0) continue;
+      legs.add((a: a, b: b, meters: m));
     }
-    return span > 0 ? hit / span * 100 : 60;
+    if (legs.isEmpty) return const [];
+
+    final totalMeters = legs.fold<double>(0, (t, l) => t + l.meters);
+    final chunkCount = math.min(maxSegments, legs.length);
+    final perChunk = (legs.length / chunkCount).ceil();
+
+    final out = <RouteSegment>[];
+    var travelled = 0.0;
+    for (var c = 0; c < legs.length; c += perChunk) {
+      final chunk = legs.sublist(c, math.min(c + perChunk, legs.length));
+      final meters = chunk.fold<double>(0, (t, l) => t + l.meters);
+
+      // 구간 양 끝을 잇는 방위 — 잔가지에 흔들리지 않는다.
+      final bearing = initialBearing(
+        lat1: chunk.first.a.lat,
+        lng1: chunk.first.a.lng,
+        lat2: chunk.last.b.lat,
+        lng2: chunk.last.b.lng,
+      );
+
+      // 이 구간 중간 지점을 지날 무렵의 시각.
+      final midFraction = totalMeters > 0 ? (travelled + meters / 2) / totalMeters : 0.0;
+      final atMinutes = (startMinutes + durationMin * midFraction).round().clamp(0, 1439);
+      final sample = sun.sampleAt(atMinutes);
+
+      out.add(RouteSegment(
+        bearing: bearing,
+        meters: meters,
+        sunRelative: ((sample.azimuthDeg - bearing) % 360 + 360) % 360,
+        intensity: sample.intensity,
+      ));
+      travelled += meters;
+    }
+    return out;
+  }
+
+  /// 구간들을 거리로 가중해 왼쪽/오른쪽 중 어느 쪽이 더 오래 그늘인지 고른다.
+  ///
+  /// 예전에는 기점→종점 직선 방위 하나로 판정했다. 노선이 중간에 꺾이면
+  /// 그 직선은 실제 주행 방향과 한참 다를 수 있는데, 이제는 구간마다 실제
+  /// 방위를 보고 **거리로 투표**한다.
+  static bool preferLeftSeat(List<RouteSegment> segments, SunMode mode) {
+    var sunRightMeters = 0.0, sunLeftMeters = 0.0;
+    for (final s in segments) {
+      final w = s.meters * s.sideLoad; // 약한 구간은 자연스럽게 영향이 작아진다
+      if (s.sunOnRight) {
+        sunRightMeters += w;
+      } else {
+        sunLeftMeters += w;
+      }
+    }
+    // 그늘 모드면 해가 많이 드는 반대쪽에 앉는다.
+    final sunMostlyRight = sunRightMeters >= sunLeftMeters;
+    return (mode == SunMode.shade) ? sunMostlyRight : !sunMostlyRight;
+  }
+
+  /// 추천 좌석이 목표 상태(그늘 모드면 그늘)로 유지되는 **거리 비율**.
+  ///
+  /// 예전에는 고정 비율 `[14, 22, 9, 26, 11, 18]`짜리 가짜 구간과 승하차 구간의
+  /// 겹침을 계산했는데, 이제 구간 자체가 승차→하차 사이의 실제 거리라서
+  /// 겹침을 따질 필요 없이 그대로 가중 평균하면 된다.
+  ///
+  /// 좌우 차이가 없는 구간(`weak`)은 "나쁘지 않다"는 뜻이라 절반만 쳐준다.
+  static double windowPct(List<RouteSegment> segments, bool leftSeat) {
+    if (segments.isEmpty) return 60;
+    var total = 0.0, good = 0.0;
+    for (final s in segments) {
+      total += s.meters;
+      switch (s.kindFor(leftSeat)) {
+        case SegKind.shade:
+          good += s.meters;
+        case SegKind.weak:
+          good += s.meters * 0.5;
+        case SegKind.sun:
+          break;
+      }
+    }
+    return total > 0 ? (good / total * 100) : 60;
   }
 
   static const int rowCount = 6;
