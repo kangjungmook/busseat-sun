@@ -90,8 +90,13 @@ class _LocationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = state.location;
-    final label = loc == null ? '강남역 11번 출구 근처' : '현재 위치 (${loc.lat.toStringAsFixed(4)}, ${loc.lon.toStringAsFixed(4)})';
-    final acc = loc == null ? '±8m' : loc.accuracyLabel;
+    // 위치를 못 받았으면 그렇다고 말한다. 예전엔 '강남역 11번 출구 근처'와
+    // 'GPS ±8m'를 그냥 박아뒀는데, 위치를 켠 적도 없는 사용자에게 정확한 위치를
+    // 잡은 것처럼 보였다.
+    final label = loc == null
+        ? '위치를 확인하려면 탭하세요'
+        : '현재 위치 (${loc.lat.toStringAsFixed(4)}, ${loc.lon.toStringAsFixed(4)})';
+    final acc = loc == null ? '꺼짐' : loc.accuracyLabel;
     return GestureDetector(
       onTap: state.refreshLocation,
       child: Container(
@@ -300,7 +305,14 @@ class _RecentsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recents = [kSeedRoutes[0], kSeedRoutes[2], kSeedRoutes[4]];
+    // **조회에 성공해서 캐시된 실제 노선만** 보여준다.
+    //
+    // 예전에는 시드 상수(9401·3401·140)를 띄웠는데 두 가지가 문제였다:
+    // TAGO가 서울을 담당하지 않아 검색으로는 절대 나올 수 없는 번호들이었고,
+    // 누르면 손으로 적어둔 방위·소요시간으로 계산된 좌석 추천이 실제 결과와
+    // 똑같은 화면에 떴다. "3초 안에 알려준다"는 앱에서 그 3초가 지어낸 값이면
+    // 사용자는 그걸 믿고 자리를 잡는다.
+    final recents = state.routeCache.values.toList().reversed.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,38 +331,55 @@ class _RecentsRow extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 14),
+        Text('최근 검색한 노선', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .3, color: palette.textMuted)),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 62,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: recents.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, i) {
-              final r = recents[i];
-              return Material(
-                color: palette.surfaceColor,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
+        if (recents.isEmpty)
+          Container(
+            height: 62,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: palette.line),
+            ),
+            child: Text(
+              '번호를 검색하면 여기에 쌓여요',
+              style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13, color: palette.textMuted),
+            ),
+          )
+        else
+          SizedBox(
+            height: 62,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: recents.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final r = recents[i];
+                return Material(
+                  color: palette.surfaceColor,
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => state.chooseRoute(r),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: palette.line)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(r.no, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -.4, color: palette.text)),
-                        Text(r.dirs.first.name, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, color: palette.textMuted)),
-                      ],
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => state.chooseRoute(r),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: palette.line)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(r.no, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -.4, color: palette.text)),
+                          Text(r.dirs.first.name, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, color: palette.textMuted)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
