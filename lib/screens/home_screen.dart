@@ -93,9 +93,16 @@ class _LocationBar extends StatelessWidget {
     // 위치를 못 받았으면 그렇다고 말한다. 예전엔 '강남역 11번 출구 근처'와
     // 'GPS ±8m'를 그냥 박아뒀는데, 위치를 켠 적도 없는 사용자에게 정확한 위치를
     // 잡은 것처럼 보였다.
+    //
+    // 반대로 좌표를 그대로 띄우는 것도(`36.4981, 127.3228`) 정직하긴 해도
+    // 읽는 사람에겐 아무 의미가 없다. 카카오 로컬로 받은 지명을 먼저 쓰고,
+    // 그게 없으면 가까운 정류장 이름, 그것도 없으면 담백한 문구로 내려간다.
     final label = loc == null
-        ? '위치를 확인하려면 탭하세요'
-        : '현재 위치 (${loc.lat.toStringAsFixed(4)}, ${loc.lon.toStringAsFixed(4)})';
+        ? (state.locationLoading ? '위치를 확인하는 중…' : '위치를 확인하려면 탭하세요')
+        : state.locationRegionLabel ??
+            (state.nearbyStationLabel != null
+                ? '${state.nearbyStationLabel!.name} 근처'
+                : '현재 위치를 확인했어요');
     final acc = loc == null ? '꺼짐' : loc.accuracyLabel;
     return GestureDetector(
       onTap: state.refreshLocation,

@@ -14,7 +14,19 @@ class KakaoRegion {
   /// region_2depth_name — 시/군/구. 예: '성남시 분당구', '강남구', '' (세종 등).
   final String sigungu;
 
-  const KakaoRegion({required this.sido, required this.sigungu});
+  /// region_3depth_name — 읍/면/동. 예: '집현동', '역삼동'. 없을 수 있다.
+  ///
+  /// TAGO 도시코드 매칭에는 안 쓰지만, 화면에 "지금 어디"를 보여줄 때 시군구만
+  /// 있으면 너무 뭉뚱그려져서('유성구') 동까지 붙인다.
+  final String dong;
+
+  const KakaoRegion({required this.sido, required this.sigungu, this.dong = ''});
+
+  /// 사용자에게 보여줄 짧은 지명. 세종처럼 시군구가 비는 지역은 시도로 채운다.
+  String get displayName {
+    final head = sigungu.isNotEmpty ? sigungu : sido;
+    return dong.isNotEmpty ? '$head $dong' : head;
+  }
 
   @override
   String toString() => '$sido $sigungu'.trim();
@@ -79,6 +91,7 @@ class KakaoLocalService {
     return KakaoRegion(
       sido: (doc['region_1depth_name'] ?? '').toString(),
       sigungu: (doc['region_2depth_name'] ?? '').toString(),
+      dong: (doc['region_3depth_name'] ?? '').toString(),
     );
   }
 }

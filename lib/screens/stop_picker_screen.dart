@@ -69,7 +69,11 @@ class StopPickerScreen extends StatelessWidget {
                       children: [
                         Text('현재 위치', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
                         Text(
-                          state.location == null ? '아직 위치를 확인하지 않았어요' : 'GPS ${state.location!.accuracyLabel} 오차로 확인됨',
+                          state.location == null
+                              ? '아직 위치를 확인하지 않았어요'
+                              // 지명을 받았으면 지명이 먼저다. 못 받았을 때만
+                              // 오차 표기로 "그래도 잡히긴 했다"를 알린다.
+                              : state.locationRegionLabel ?? 'GPS ${state.location!.accuracyLabel} 오차로 확인됨',
                           style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.text),
                         ),
                       ],

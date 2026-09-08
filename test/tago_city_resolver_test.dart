@@ -102,4 +102,25 @@ void main() {
       );
     });
   });
+
+  group('KakaoRegion.displayName — 화면에 띄울 지명', () {
+    test('시군구 + 동', () {
+      expect(
+        const KakaoRegion(sido: '대전광역시', sigungu: '유성구', dong: '봉명동').displayName,
+        '유성구 봉명동',
+      );
+    });
+
+    test('시군구가 비는 지역(세종)은 시도로 채운다', () {
+      // 실제 응답에서 region_2depth_name이 빈 문자열로 온다.
+      expect(
+        const KakaoRegion(sido: '세종특별자치시', sigungu: '', dong: '집현동').displayName,
+        '세종특별자치시 집현동',
+      );
+    });
+
+    test('동이 없으면 시군구만', () {
+      expect(const KakaoRegion(sido: '경기', sigungu: '성남시 분당구').displayName, '성남시 분당구');
+    });
+  });
 }

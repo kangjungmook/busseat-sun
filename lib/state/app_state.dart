@@ -8,6 +8,7 @@ import '../models/route.dart';
 import '../models/user.dart';
 import '../services/favorites_store.dart';
 import '../services/kakao_auth_service.dart';
+import '../services/kakao_local_service.dart';
 import '../services/location_service.dart';
 import '../services/route_cache.dart';
 import '../services/tago_route_repository.dart';
@@ -90,6 +91,19 @@ class AppState extends ChangeNotifier {
   // 위치
   LocationResult? location;
   bool locationLoading = false;
+
+  /// 화면에 보여줄 현재 위치의 지명 (예: '유성구 봉명동'). 카카오 로컬로 받는다.
+  /// 못 받으면 null이고, 그때는 좌표 숫자 대신 다른 문구로 대체한다 —
+  /// 위경도를 그대로 띄우면 사용자에게 아무 의미가 없다.
+  String? locationRegionLabel;
+
+  /// [locationRegionLabel]을 만든 좌표. 조금 움직였다고 다시 부르지 않으려고 둔다.
+  double? _regionLabelLat;
+  double? _regionLabelLng;
+
+  /// 이 거리 안에서 다시 위치를 받으면 지명은 그대로 쓴다. 동 하나가 보통
+  /// 이보다 크고, 카카오 로컬은 개발계정 일일 한도가 있어서 아껴 쓴다.
+  static const double _regionLabelReuseMeters = 300;
 
   // 홈 화면 "가까운 정류장" 캡션 — 이름 + 현재 위치로부터의 거리(m).
   ({String name, double meters})? nearbyStationLabel;
@@ -592,7 +606,36 @@ class AppState extends ChangeNotifier {
       locationLoading = false;
       notifyListeners();
     }
-    if (location != null) unawaited(_loadNearestStation());
+    if (location != null) {
+      unawaited(_loadNearestStation());
+      unawaited(_loadRegionLabel());
+    }
+  }
+
+  /// 좌표 → 지명. 실패하면 조용히 null로 남긴다(화면은 문구로 대체된다).
+  Future<void> _loadRegionLabel() async {
+    final loc = location;
+    if (loc == null) return;
+
+    // 같은 동네면 이미 받아둔 이름을 그대로 쓴다.
+    final prevLat = _regionLabelLat, prevLng = _regionLabelLng;
+    if (locationRegionLabel != null && prevLat != null && prevLng != null) {
+      final moved = haversineMeters(lat1: prevLat, lng1: prevLng, lat2: loc.lat, lng2: loc.lon);
+      if (moved < _regionLabelReuseMeters) return;
+    }
+
+    KakaoRegion? region;
+    try {
+      region = await KakaoLocalService.regionForCoord(lat: loc.lat, lng: loc.lon);
+    } catch (_) {
+      region = null; // 네트워크/키 문제 — 지명 없이 간다.
+    }
+    if (region == null) return;
+
+    locationRegionLabel = region.displayName;
+    _regionLabelLat = loc.lat;
+    _regionLabelLng = loc.lon;
+    notifyListeners();
   }
 
   /// 홈 화면 "가까운 정류장" 캡션 — 실패해도 화면을 막지 않고 조용히 넘어간다.
