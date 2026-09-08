@@ -18,8 +18,23 @@ enum SearchScope { city, province, nationwide }
 ///
 /// 소요시간(durationMin)은 TAGO가 안 준다 — 정류장 수 기반 추정치다.
 
+/// [TagoRouteRepository.search]의 결과.
+///
+/// "노선을 못 찾음"과 "그 지역을 TAGO가 담당하지 않음"은 사용자에게 완전히 다른
+/// 이야기라 구분한다 — 전자는 번호를 다시 확인하라는 뜻이고, 후자는 번호를
+/// 백 번 고쳐 넣어도 안 된다는 뜻이다 (서울이 대표적).
+class RouteSearchResult {
+  final BusRoute? route;
+
+  /// 위치는 알아냈는데 그 지역을 담당하는 TAGO 도시가 하나도 없을 때의 지역명.
+  /// (예: '세종특별자치시'. 서울이라면 '서울특별시')
+  final String? unsupportedRegion;
+
+  const RouteSearchResult({this.route, this.unsupportedRegion});
+}
+
 class TagoRouteRepository {
-  /// 노선번호로 [BusRoute]를 조립한다. 못 찾으면 null.
+  /// 노선번호로 [BusRoute]를 조립한다.
   ///
   /// **호출 수를 아끼려고 범위를 단계적으로 넓힌다.** TAGO는 cityCode가 필수라
   /// 도시를 모르면 전국(150~250개 도시)을 훑어야 하는데, 그러면 검색 한 번에
@@ -31,7 +46,12 @@ class TagoRouteRepository {
   /// 3. 그래도 없고 [allowNationwide]면 전국 (마지막 수단)
   ///
   /// 위치를 못 얻었거나 카카오 키가 없으면 곧바로 3번으로 간다.
-  static Future<BusRoute?> search(
+  ///
+  /// **지역을 알아냈는데 담당 도시가 없으면 전국 검색을 하지 않고** 곧바로
+  /// [RouteSearchResult.unsupportedRegion]을 돌려준다. 그런 지역(서울)에서는
+  /// 전국을 다 훑어도 그 지역 버스가 나올 리 없는데, 그 헛수고 한 번이 API를
+  /// 200번 쓴다 — 서울 사용자가 검색할 때마다 한도가 날아가는 걸 막는다.
+  static Future<RouteSearchResult> search(
     String routeNo, {
     LocationResult? near,
     bool allowNationwide = true,
@@ -50,14 +70,15 @@ class TagoRouteRepository {
       }
       if (region != null) {
         final candidates = TagoCityResolver.candidatesFor(region, cities);
-        if (candidates.isNotEmpty) {
-          primary = candidates.first;
-          matches = await TagoBusService.findRouteInCities(
-            routeNo,
-            candidates,
-            onProgress: (d, t) => onProgress?.call(SearchScope.city, d, t),
-          );
+        if (candidates.isEmpty) {
+          return RouteSearchResult(unsupportedRegion: region.toString());
         }
+        primary = candidates.first;
+        matches = await TagoBusService.findRouteInCities(
+          routeNo,
+          candidates,
+          onProgress: (d, t) => onProgress?.call(SearchScope.city, d, t),
+        );
       }
     }
 
@@ -80,7 +101,7 @@ class TagoRouteRepository {
       );
     }
 
-    if (matches.isEmpty) return null;
+    if (matches.isEmpty) return const RouteSearchResult();
 
     // 같은 routeId가 여러 도시에서 중복으로 잡힐 수는 없지만(도시별로 관리되는
     // 값), 만약을 대비해 routeId 기준으로만 중복 제거한다.
@@ -97,13 +118,15 @@ class TagoRouteRepository {
       final stops = await TagoBusService.getRouteStops(cityCode: m.city.code, routeId: m.route.routeId);
       dirs.addAll(_toDirs(stops, fallbackFrom: m.route.startNodeName, fallbackTo: m.route.endNodeName));
     }
-    if (dirs.isEmpty) return null;
+    if (dirs.isEmpty) return const RouteSearchResult();
 
-    return BusRoute(
-      no: routeNo,
-      kind: routeType ?? '버스',
-      durationMin: _estimateDuration(dirs),
-      dirs: dirs,
+    return RouteSearchResult(
+      route: BusRoute(
+        no: routeNo,
+        kind: routeType ?? '버스',
+        durationMin: _estimateDuration(dirs),
+        dirs: dirs,
+      ),
     );
   }
 

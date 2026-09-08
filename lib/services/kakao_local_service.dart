@@ -22,19 +22,30 @@ class KakaoRegion {
 
 /// 카카오 로컬 API — 좌표 → 행정구역(coord2regioncode).
 ///
-/// ⚠️ **이 세션에서 실제 호출로 검증하지 못했다** (샌드박스에서
-/// `dapi.kakao.com` 접근 차단). 엔드포인트·파라미터·응답 필드명은 널리 쓰이는
-/// 공개 스펙을 따랐다. 실패하면 [regionForCoord]가 null을 돌려주고,
-/// 호출하는 쪽(`TagoRouteRepository`)은 예전처럼 넓은 범위 검색으로 조용히
-/// 넘어가므로 앱이 멈추지는 않는다.
+/// ✅ **2026-09-08 실제 호출로 검증됨** (세종 집현동 좌표). 응답:
 ///
-/// 브라우저로 먼저 확인하려면(REST 키는 헤더로 보내야 해서 주소창만으로는 안 되고
-/// curl이 필요하다):
+/// ```json
+/// {"meta":{"total_count":2},"documents":[
+///   {"region_type":"B","code":"3611011800","address_name":"세종특별자치시 집현동",
+///    "region_1depth_name":"세종특별자치시","region_2depth_name":"",
+///    "region_3depth_name":"집현동", ...},
+///   {"region_type":"H", ...}]}
+/// ```
+///
+/// 여기서 확인된 것: `region_type`이 B(법정동)/H(행정동) 두 건 오고,
+/// 시도는 **약칭이 아니라 전체 표기**('세종특별자치시')이며,
+/// **`region_2depth_name`이 빈 문자열일 수 있다**(세종처럼 시군구가 없는 지역).
+/// 매칭하는 쪽(tago_city_resolver.dart)이 이 세 가지를 다 고려한다.
+///
+/// 다시 확인하려면(REST 키는 헤더로 보내야 해서 주소창만으로는 안 되고 curl):
 ///
 /// ```sh
 /// curl -H "Authorization: KakaoAK <REST API 키>" \
 ///   "https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=127.322785&y=36.498135"
 /// ```
+///
+/// 실패하면 [regionForCoord]가 null을 돌려주고, 호출하는 쪽
+/// (`TagoRouteRepository`)은 넓은 범위 검색으로 조용히 넘어가므로 앱이 멈추지는 않는다.
 ///
 /// **자주 걸리는 함정** — 키가 맞는데도 이런 응답이 오면:
 /// ```json

@@ -28,10 +28,20 @@ class TagoCityResolver {
 
   /// [region]에 해당하는 도시를 유력한 순서로 돌려준다.
   ///
-  /// 1. 시·군 이름이 정확히 맞는 도시 (예: '성남시')
-  /// 2. 시도 이름이 맞는 도시 (광역시·특별자치시. 예: '세종특별자치시')
+  /// 1. 시·군 이름이 정확히 맞는 도시 (예: 카카오 '성남시 분당구' → TAGO '성남시')
+  /// 2. 시도 이름이 정확히 맞는 도시 (예: '세종특별자치시')
+  /// 3. 시도 앞 2글자로 시작하는 도시 (표기 차이 흡수: '세종' → '세종시')
   ///
-  /// 하나도 못 찾으면 빈 리스트 — 호출하는 쪽이 더 넓은 검색으로 폴백한다.
+  /// 2·3을 나눈 이유는 오탐 때문이다. 예를 들어 광주광역시 사용자는 시군구가
+  /// '북구'라 1번에서 안 걸리고 3번으로 내려오는데, `startsWith('광주')`는
+  /// **경기도 광주시**까지 같이 잡는다. 정확히 일치하는 걸 먼저 넣어두면
+  /// 첫 번째 후보(=province 폴백의 기준)가 엉뚱한 도시가 되지 않는다.
+  ///
+  /// 세종처럼 `region_2depth_name`이 빈 문자열인 지역도 있어서(2026-09-08
+  /// 실제 응답 확인) 시군구는 비어 있을 수 있다 — 그때는 2·3번으로 잡힌다.
+  ///
+  /// 하나도 못 찾으면 빈 리스트 — **TAGO가 그 지역을 아예 담당하지 않는다는
+  /// 뜻일 수 있다** (서울처럼). 호출하는 쪽이 그 경우를 구분해서 다룬다.
   static List<TagoCity> candidatesFor(KakaoRegion region, List<TagoCity> cities) {
     final out = <TagoCity>[];
     final seen = <String>{};
@@ -47,12 +57,16 @@ class TagoCityResolver {
       }
     }
 
+    final sido = _norm(region.sido);
+    if (sido.isNotEmpty) {
+      for (final c in cities) {
+        if (_norm(c.name) == sido) add(c);
+      }
+    }
+
     final core = _sidoCore(region.sido);
     if (core.isNotEmpty) {
       for (final c in cities) {
-        // 광역시·특별자치시는 도시 하나가 곧 시도다 ('세종특별자치시').
-        // 도(경기·강원 등)는 이 규칙에 걸리는 도시가 없거나 애매하니
-        // 아래 [provinceSiblings]로 넓히는 쪽을 쓴다.
         if (_norm(c.name).startsWith(core)) add(c);
       }
     }

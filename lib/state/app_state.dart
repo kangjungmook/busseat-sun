@@ -140,7 +140,8 @@ class AppState extends ChangeNotifier {
     if (routeCache.containsKey(routeNo) || _resolving.contains(routeNo)) return;
     _resolving.add(routeNo);
     try {
-      final route = await TagoRouteRepository.search(routeNo, near: location, allowNationwide: false);
+      final result = await TagoRouteRepository.search(routeNo, near: location, allowNationwide: false);
+      final route = result.route;
       if (route != null) await _cacheRoute(route);
     } catch (_) {
       // '오늘' 화면은 다음에 다시 시도된다 — 여기서 에러를 표면화하지 않는다.
@@ -280,16 +281,25 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    BusRoute? route;
-    try {
-      route = routeCache[q] ?? await TagoRouteRepository.search(q, near: location);
-    } catch (_) {
-      route = null;
-      searchError = '노선 정보를 불러오지 못했어요. 네트워크를 확인해 주세요.';
+    BusRoute? route = routeCache[q];
+    String? unsupportedRegion;
+    if (route == null) {
+      try {
+        final result = await TagoRouteRepository.search(q, near: location);
+        route = result.route;
+        unsupportedRegion = result.unsupportedRegion;
+      } catch (_) {
+        route = null;
+        searchError = '노선 정보를 불러오지 못했어요. 네트워크를 확인해 주세요.';
+      }
     }
 
     searching = false;
     if (route == null) {
+      // 지역 자체가 미지원이면 번호를 고쳐 넣어도 소용없다 — 그렇게 말해준다.
+      if (unsupportedRegion != null) {
+        searchError = '$unsupportedRegion 버스는 아직 지원하지 않아요.\n다른 지역에서는 정상 동작합니다.';
+      }
       searchError ??= '"$q"번 노선을 찾을 수 없어요. 번호를 확인해 주세요.';
       screen = AppScreen.home;
       notifyListeners();
@@ -504,7 +514,7 @@ class AppState extends ChangeNotifier {
       resultEntered = false;
       notifyListeners();
       try {
-        route = await TagoRouteRepository.search(fav.routeNo, near: location);
+        route = (await TagoRouteRepository.search(fav.routeNo, near: location)).route;
       } catch (_) {
         route = null;
       }
