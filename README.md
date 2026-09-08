@@ -52,6 +52,13 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 남아있고, 좌표가 없어(`stopCoords`가 빈 리스트) 지도·근접 정류장 계산에서는
 자동으로 제외됩니다.
 
+**✅ 정류소 좌표 확인 완료 (2026-09-07, cityCode 12 / routeId SJB271000805)**:
+`getRouteAcctoThrghSttnList`가 `gpslati`·`gpslong`·`nodeord`를 실제로 돌려주는 걸
+확인했습니다. 좌표는 **JSON 숫자 타입**으로 오지만 `_pick`이 `toString()`을 거쳐
+파싱하므로 문제 없습니다. `updowncd`는 응답에 **없었고**, 그래서 방면 구분은
+routeId로만 이뤄집니다 (`_toDirs`의 `upDownCode ?? 0` 폴백이 이 경우를 처리).
+즉 **진행 방위(bearing) → 좌석 판정으로 이어지는 핵심 경로가 실제 데이터로 동작**합니다.
+
 **아직 실기기에서 못 본 부분**: `getRouteNoList` 자체는 브라우저로 실제 성공을
 확인했지만, 여러 도시 순회(`findRouteNationwide`) → 정류소 조회 → 방향 분리 →
 결과 화면까지 이어지는 전체 흐름은 `flutter analyze`/`flutter test`로 타입/구조만
