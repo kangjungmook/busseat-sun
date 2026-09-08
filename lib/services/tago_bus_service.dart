@@ -97,20 +97,18 @@ class TagoBusService {
     return cities;
   }
 
-  /// 노선번호만 알고 도시를 모를 때 — 전국 도시코드를 순회하며 검색한다.
-  /// cityCode가 API 필수값이라 "전국 검색"이 따로 없어서, 앱이 대신
-  /// 도시 목록을 한 번 받아 여러 개를 동시에(과금·요청량 제한을 고려해
-  /// [concurrency]개씩 묶어서) 조회하는 방식으로 흉내낸다.
+  /// 주어진 [cities]에서만 노선번호를 찾는다 (동시 [concurrency]개씩).
   ///
-  /// 사용자가 도시코드를 몰라도(=대부분의 경우) 번호만 넣으면 앱이 알아서
-  /// 찾도록 하기 위한 함수 — [onProgress]로 진행 상황(몇 개 도시 중 몇 번째)을
-  /// 알려줄 수 있다.
-  static Future<List<TagoRouteMatch>> findRouteNationwide(
-    String routeNo, {
+  /// TAGO는 cityCode가 필수라 "도시를 모르는 검색"이 없다. 그래서 앱이 도시를
+  /// 하나씩 물어보는 수밖에 없는데, **호출 수가 곧 도시 수**라서 범위를 좁히는
+  /// 게 중요하다 (전국 = 150~250회, 개발계정 일일 한도가 보통 1,000건).
+  /// 범위 선택은 [TagoRouteRepository]가 위치 기반으로 단계적으로 넓힌다.
+  static Future<List<TagoRouteMatch>> findRouteInCities(
+    String routeNo,
+    List<TagoCity> cities, {
     int concurrency = 8,
     void Function(int done, int total)? onProgress,
   }) async {
-    final cities = await getCityCodes();
     final matches = <TagoRouteMatch>[];
     var done = 0;
 
@@ -133,6 +131,18 @@ class TagoBusService {
       onProgress?.call(done, cities.length);
     }
     return matches;
+  }
+
+  /// 전국 도시를 전부 훑는다 — **호출 수가 도시 수만큼(150~250회)** 나가므로
+  /// 마지막 수단으로만 쓴다. 평소 경로는 [TagoRouteRepository.search]가
+  /// 위치로 도시를 좁힌 뒤 [findRouteInCities]를 부르는 쪽이다.
+  static Future<List<TagoRouteMatch>> findRouteNationwide(
+    String routeNo, {
+    int concurrency = 8,
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final cities = await getCityCodes();
+    return findRouteInCities(routeNo, cities, concurrency: concurrency, onProgress: onProgress);
   }
 
   /// [노선번호목록 조회] getRouteNoList — cityCode 필수, routeNo 옵션(비우면 그 도시 전체 노선).

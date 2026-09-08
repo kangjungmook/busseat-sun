@@ -131,11 +131,16 @@ class AppState extends ChangeNotifier {
   }
 
   /// 캐시에 없으면 조용히 백그라운드에서 채워온다 (실패해도 화면을 막지 않는다).
+  ///
+  /// **전국 검색은 하지 않는다** (`allowNationwide: false`). 이건 사용자가
+  /// 요청한 적 없는 백그라운드 작업인데, 전국 스캔은 즐겨찾기 하나당 API를
+  /// 200번 쓴다 — 즐겨찾기 3개면 앱을 켜는 것만으로 하루 한도가 날아간다.
+  /// 여기서 못 채우면 사용자가 직접 검색할 때 넓은 범위로 다시 찾는다.
   Future<void> ensureRouteCached(String routeNo) async {
     if (routeCache.containsKey(routeNo) || _resolving.contains(routeNo)) return;
     _resolving.add(routeNo);
     try {
-      final route = await TagoRouteRepository.search(routeNo);
+      final route = await TagoRouteRepository.search(routeNo, near: location, allowNationwide: false);
       if (route != null) await _cacheRoute(route);
     } catch (_) {
       // '오늘' 화면은 다음에 다시 시도된다 — 여기서 에러를 표면화하지 않는다.
@@ -264,9 +269,20 @@ class AppState extends ChangeNotifier {
     screen = AppScreen.loading;
     notifyListeners();
 
+    // 위치를 먼저 확보한다 — 있으면 검색 범위를 내 지역으로 좁혀서 API 호출이
+    // 200회에서 1~2회로 줄어든다 (TagoRouteRepository.search 참고).
+    // 실패해도 검색 자체는 진행한다(전국 검색으로 폴백).
+    if (location == null) {
+      try {
+        await refreshLocation();
+      } catch (_) {
+        // 권한 거부/센서 없음 — 넓게 찾는 쪽으로 넘어간다.
+      }
+    }
+
     BusRoute? route;
     try {
-      route = routeCache[q] ?? await TagoRouteRepository.search(q);
+      route = routeCache[q] ?? await TagoRouteRepository.search(q, near: location);
     } catch (_) {
       route = null;
       searchError = '노선 정보를 불러오지 못했어요. 네트워크를 확인해 주세요.';
@@ -488,7 +504,7 @@ class AppState extends ChangeNotifier {
       resultEntered = false;
       notifyListeners();
       try {
-        route = await TagoRouteRepository.search(fav.routeNo);
+        route = await TagoRouteRepository.search(fav.routeNo, near: location);
       } catch (_) {
         route = null;
       }
