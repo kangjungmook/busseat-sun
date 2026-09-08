@@ -20,6 +20,22 @@ flutter run --dart-define-from-file=secrets/dart_defines.json
 키 없이 `flutter run`만 해도 앱은 뜨지만, 카카오 로그인은 게스트 모드로만 동작하고
 노선 검색(TAGO)은 아예 실패합니다.
 
+### 웹으로 UI 미리보기 (기기·에뮬레이터 없이)
+
+```bash
+flutter run -d chrome        # 또는 flutter build web
+```
+
+**출시 대상이 아니라 화면 확인용입니다.** Mac이나 안드로이드 기기가 없어도
+로그인 → 홈 → 방면 선택 → 결과 → 좌석지도 → 구간지정 → 지도 흐름을 눈으로
+볼 수 있어서 넣어뒀습니다 (시드 데이터는 네트워크 없이 동작합니다).
+한계:
+- `webview_flutter`가 웹을 지원하지 않아 **지도 화면은 웹에서 항상 플레이스홀더**입니다
+  (`map_screen.dart`에서 `kIsWeb`으로 막아둠 — JS 키가 있어도 안전).
+- AR 화면의 카메라·나침반은 웹에서 동작하지 않습니다.
+- CanvasKit을 CDN(`gstatic.com`)에서 받으므로 해당 도메인이 막힌 망에서는 흰 화면이
+  됩니다. 그때는 `build/web`의 CanvasKit 로컬 사본을 쓰도록 경로를 바꿔야 합니다.
+
 카카오 키는 용도별로 **세 개가 전부 다른 키**입니다 — 앱 → `플랫폼 키`에서 각각 확인:
 
 | dart-define | 카카오 콘솔 | 쓰는 곳 |

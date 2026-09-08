@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,8 +31,12 @@ class MapScreen extends StatelessWidget {
     // 실제 정류장 좌표(TAGO)가 있고 카카오맵 JS 키가 설정된 경우에만 실제 지도로
     // 바꾼다. 둘 중 하나라도 없으면 기존 도로 그리드 플레이스홀더로 대체한다
     // (README "지도 SDK" 절 참고).
+    //
+    // 웹에서는 항상 플레이스홀더다 — `webview_flutter`가 웹을 지원하지 않아서
+    // [KakaoMapView]를 만들면 터진다. 웹은 UI 미리보기 전용이라(README 참고)
+    // 여기서 막아두면 키가 채워져 있어도 안전하다.
     final mapStops = dir.mappableStops;
-    final useRealMap = KakaoJsConfig.isConfigured && mapStops.isNotEmpty;
+    final useRealMap = !kIsWeb && KakaoJsConfig.isConfigured && mapStops.isNotEmpty;
 
     return SafeArea(
       top: false,
