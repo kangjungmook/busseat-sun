@@ -160,7 +160,17 @@ class AppState extends ChangeNotifier {
 
   SunMode get effectiveMode => modeOverride ?? (seasonAuto ? seasonalDefault : SunMode.shade);
 
-  bool get isNight => SunCalc.isNight(minutes);
+  /// 지금 위치·날짜 기준 태양. 위치를 못 받았으면 전국 중심(대전 부근)으로
+  /// 계산한다 — 위도가 1° 다르면 태양 고도도 1° 달라지므로, 정확한 값을
+  /// 원하면 위치 권한이 필요하다.
+  SunCalc get sun => SunCalc(
+        lat: location?.lat ?? SunCalc.fallbackLat,
+        lng: location?.lon ?? SunCalc.fallbackLng,
+        date: DateTime.now(),
+        tzOffset: SunCalc.kstOffset,
+      );
+
+  bool get isNight => sun.isNight(minutes);
 
   BusRoute? get currentRoute => resolvedRoute;
 

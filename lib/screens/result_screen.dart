@@ -26,6 +26,7 @@ class ResultScreen extends StatelessWidget {
       dirIndex: state.dirIndex,
       minutes: state.minutes,
       mode: state.effectiveMode,
+      sun: state.sun,
       board: state.boardIndex,
       alight: state.alightIndex,
     );

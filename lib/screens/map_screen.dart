@@ -25,7 +25,7 @@ class MapScreen extends StatelessWidget {
     final dir = state.currentDir;
     if (route == null || dir == null) return const SizedBox.shrink();
 
-    final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, board: state.boardIndex, alight: state.alightIndex);
+    final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, sun: state.sun, board: state.boardIndex, alight: state.alightIndex);
     final adv = comp.advice;
 
     // 실제 정류장 좌표(TAGO)가 있고 카카오맵 JS 키가 설정된 경우에만 실제 지도로

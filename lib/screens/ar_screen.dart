@@ -90,10 +90,10 @@ class _ArScreenState extends State<ArScreen> {
     final dir = state.currentDir;
     if (route == null || dir == null) return const SizedBox.shrink();
 
-    final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, board: state.boardIndex, alight: state.alightIndex);
+    final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, sun: state.sun, board: state.boardIndex, alight: state.alightIndex);
     final adv = comp.advice;
     final az = comp.azimuth;
-    final alt = comp.altitude;
+    final alt = comp.intensity; // 0~1 일사 세기 (AR 배치·강조에 쓰는 계수)
 
     // heading: 실제 센서 없으면 태양 기준 -22°에서 시작하는 시뮬레이션 값.
     final heading = _heading ?? (az - 22 + _dragOffset);
@@ -357,7 +357,7 @@ class _ArSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final belowHorizon = comp.altitude < 0.02;
+    final belowHorizon = comp.altitudeDeg <= 0;
     final verdict = belowHorizon ? '해가 지평선 아래예요' : '${adv.sideLabel} 창가에 앉으세요';
     final incNote = belowHorizon ? '직사광이 없어 좌석 차이가 거의 없어요' : '${sunRight ? '우측' : '좌측'} 창으로 입사각 ${incAngle.round()}° · 좌석 ${depth.round()}cm까지 들어옴';
 
@@ -398,7 +398,7 @@ class _ArSheet extends StatelessWidget {
             children: [
               Expanded(child: _StatBox(number: comp.azimuthShort, caption: '태양 방위', palette: palette)),
               const SizedBox(width: 7),
-              Expanded(child: _StatBox(number: '${(comp.altitude * 62).round()}°', caption: '태양 고도', palette: palette)),
+              Expanded(child: _StatBox(number: '${comp.altitudeDeg.round()}°', caption: '태양 고도', palette: palette)),
               const SizedBox(width: 7),
               Expanded(child: _StatBox(number: '${incAngle.round()}°', caption: '창 입사각', palette: palette)),
             ],

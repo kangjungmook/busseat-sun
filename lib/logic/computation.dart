@@ -13,15 +13,22 @@ class SeatComputation {
   final SunMode mode;
   final int boardIndex;
   final int alightIndex;
+  final SunCalc sun;
 
-  late final double azimuth = SunCalc.azimuth(minutes);
-  late final double altitude = SunCalc.altitude(minutes);
-  late final List<SegKind> segments = SeatCalc.segments(route.no, dirIndex, minutes, mode);
+  late final double azimuth = sun.azimuth(minutes);
+
+  /// 태양 고도(도). 예전엔 0~1 계수였는데 실제 각도로 바뀌었다.
+  late final double altitudeDeg = sun.altitudeDeg(minutes);
+
+  /// 일사 세기 0~1 — 좌석 점수용.
+  late final double intensity = sun.intensity(minutes);
+  late final List<SegKind> segments = SeatCalc.segments(route.no, dirIndex, minutes, mode, sun);
   late final double windowPctValue = SeatCalc.windowPct(segments, boardIndex, alightIndex, dir.stops.length - 1, mode);
   late final SeatAdvice advice = SeatCalc.advise(
     busBearing: dir.bearing,
     minutes: minutes,
     mode: mode,
+    sun: sun,
     windowPct: windowPctValue,
   );
 
@@ -33,6 +40,7 @@ class SeatComputation {
     required this.mode,
     required this.boardIndex,
     required this.alightIndex,
+    required this.sun,
   });
 
   factory SeatComputation.build({
@@ -40,6 +48,7 @@ class SeatComputation {
     required int dirIndex,
     required int minutes,
     required SunMode mode,
+    required SunCalc sun,
     int board = 0,
     int? alight,
   }) {
@@ -55,6 +64,7 @@ class SeatComputation {
       mode: mode,
       boardIndex: bIdx,
       alightIndex: aIdx,
+      sun: sun,
     );
   }
 
@@ -63,7 +73,7 @@ class SeatComputation {
   String get spanLabel => '$boardName → $alightName';
   String get timeLabel => SunCalc.timeLabel(minutes);
   String get azimuthShort => '${azimuth.round()}°';
-  String get azimuthLong => '${azimuth.round()}° ${SunCalc.azimuthName(minutes)}';
+  String get azimuthLong => '${azimuth.round()}° ${sun.azimuthName(minutes)}';
 
   int get stopCount => dir.stopCount;
   int get durationMin => route.durationMin;

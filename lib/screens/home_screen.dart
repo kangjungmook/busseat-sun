@@ -132,9 +132,9 @@ class _SunPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final day = SunCalc.dayProgress(state.minutes);
-    final alt = SunCalc.altitude(state.minutes);
-    final fillColor = alt > 0.02 ? palette.sunDiscColor : palette.surface.grey;
+    final day = state.sun.dayProgress(state.minutes);
+    final alt = state.sun.altitudeDeg(state.minutes);
+    final fillColor = alt > 0 ? palette.sunDiscColor : palette.surface.grey;  // 고도(도)
     return Container(
       height: 92,
       decoration: BoxDecoration(color: palette.surfaceColor, borderRadius: BorderRadius.circular(20), boxShadow: [palette.cardShadow]),
@@ -154,19 +154,19 @@ class _SunPanel extends StatelessWidget {
             left: 16,
             top: 12,
             child: Text(
-              '${SunCalc.timeLabel(state.minutes)} · 고도 ${(alt * 62).round()}° · ${SunCalc.azimuthName(state.minutes)}',
+              '${SunCalc.timeLabel(state.minutes)} · 고도 ${alt.round()}° · ${state.sun.azimuthName(state.minutes)}',
               style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12.5, fontWeight: FontWeight.w800, color: palette.text),
             ),
           ),
           Positioned(
             left: 16,
             bottom: 12,
-            child: Text('일출 05:58', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
+            child: Text('일출 ${SunCalc.timeLabel(state.sun.sunriseMin)}', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
           ),
           Positioned(
             right: 16,
             bottom: 12,
-            child: Text('일몰 19:04', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
+            child: Text('일몰 ${SunCalc.timeLabel(state.sun.sunsetMin)}', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
           ),
         ],
       ),

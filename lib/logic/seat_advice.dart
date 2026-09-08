@@ -34,10 +34,13 @@ class SeatCalc {
     required double busBearing,
     required int minutes,
     required SunMode mode,
+    required SunCalc sun,
     double windowPct = 60,
   }) {
-    final az = SunCalc.azimuth(minutes);
-    final alt = SunCalc.altitude(minutes);
+    final az = sun.azimuth(minutes);
+    // 고도 자체가 아니라 일사 세기(sin 고도)를 쓴다 — 해가 낮게 뜨는 겨울엔
+    // 창으로 들어오는 빛이 약해서, 같은 방위라도 좌석 차이가 줄어든다.
+    final alt = sun.intensity(minutes);
 
     final rel = ((az - busBearing) % 360 + 360) % 360;
     final sunOnRight = rel < 180;
@@ -54,9 +57,9 @@ class SeatCalc {
 
   /// 노선을 6개 구간으로 나눠 shade/sun/under로 분류.
   /// 노선번호 해시로 결정론적 생성 — 프로덕션에선 건물 그림자 데이터로 교체.
-  static List<SegKind> segments(String routeNo, int dirIndex, int minutes, SunMode mode) {
+  static List<SegKind> segments(String routeNo, int dirIndex, int minutes, SunMode mode, SunCalc sun) {
     final hash = (routeNo.codeUnitAt(0) * 7 + routeNo.length * 13 + dirIndex * 29) % 5;
-    final d = SunCalc.dayProgress(minutes);
+    final d = sun.dayProgress(minutes);
     return List.generate(6, (i) {
       if ((i + hash) % 6 == 2) return SegKind.under;
       final good = ((i * 3 + hash + (d * 4).round()) % 5) != 0;
