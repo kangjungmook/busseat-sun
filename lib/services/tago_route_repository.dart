@@ -71,14 +71,21 @@ class TagoRouteRepository {
       if (region != null) {
         final candidates = TagoCityResolver.candidatesFor(region, cities);
         if (candidates.isEmpty) {
-          return RouteSearchResult(unsupportedRegion: region.toString());
+          // 광역시·특별시는 이름 자체가 TAGO의 도시라, 못 찾았으면 정말
+          // 담당하지 않는 지역이다(서울) → 헛되이 전국을 훑지 않고 바로 알린다.
+          if (TagoCityResolver.sidoIsSingleCity(region.sido)) {
+            return RouteSearchResult(unsupportedRegion: region.toString());
+          }
+          // 도 지역은 이름 표기가 어긋났을 뿐일 수 있다. 여기서 미지원이라고
+          // 단정하면 멀쩡히 되는 지역이 영영 막히므로, 아래 넓은 검색에 맡긴다.
+        } else {
+          primary = candidates.first;
+          matches = await TagoBusService.findRouteInCities(
+            routeNo,
+            candidates,
+            onProgress: (d, t) => onProgress?.call(SearchScope.city, d, t),
+          );
         }
-        primary = candidates.first;
-        matches = await TagoBusService.findRouteInCities(
-          routeNo,
-          candidates,
-          onProgress: (d, t) => onProgress?.call(SearchScope.city, d, t),
-        );
       }
     }
 

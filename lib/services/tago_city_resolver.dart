@@ -26,6 +26,33 @@ class TagoCityResolver {
     return n.length <= 2 ? n : n.substring(0, 2);
   }
 
+  /// '성남시' → '성남'. 두 API가 '시/군/구'를 붙이는지가 서로 다를 수 있어
+  /// 접미사를 떼고도 한 번 비교한다. 한 글자만 남는 경우('중구'→'중')는
+  /// 엉뚱한 도시와 겹치기 쉬워 비교에 쓰지 않는다.
+  static String? _sigunguCore(String s) {
+    final n = _norm(s);
+    final stripped = (n.length > 1 && (n.endsWith('시') || n.endsWith('군') || n.endsWith('구')))
+        ? n.substring(0, n.length - 1)
+        : n;
+    return stripped.length >= 2 ? stripped : null;
+  }
+
+  /// 이 시도가 TAGO에서 **도시 하나로 존재하는지**.
+  ///
+  /// 광역시·특별시·특별자치시는 그 이름 자체가 TAGO의 도시다('세종특별자치시').
+  /// 반면 '경기도' 같은 도는 TAGO에 도 단위 도시가 없고 '성남시'처럼 시·군
+  /// 이름으로만 들어있다.
+  ///
+  /// 이 구분이 필요한 이유: 후보를 못 찾았을 때 **"미지원"이라고 단정해도
+  /// 되는지**가 갈리기 때문이다. 광역시인데 못 찾았으면 정말 TAGO가 담당하지
+  /// 않는 것이고(서울), 도인데 못 찾은 건 이름 표기가 어긋났을 뿐일 수 있다.
+  /// 후자를 미지원으로 단정하면 멀쩡히 되는 지역 사용자에게 앱이 영영 막힌
+  /// 것처럼 보인다 — 그래서 도 지역은 넓은 검색으로 넘긴다.
+  static bool sidoIsSingleCity(String sido) {
+    final n = _norm(sido);
+    return n.endsWith('특별시') || n.endsWith('광역시') || n.endsWith('특별자치시');
+  }
+
   /// [region]에 해당하는 도시를 유력한 순서로 돌려준다.
   ///
   /// 1. 시·군 이름이 정확히 맞는 도시 (예: 카카오 '성남시 분당구' → TAGO '성남시')
@@ -54,6 +81,13 @@ class TagoCityResolver {
     if (sigungu.isNotEmpty) {
       for (final c in cities) {
         if (_norm(c.name) == sigungu) add(c);
+      }
+      // 접미사 표기가 다를 때('성남시' ↔ '성남')도 잡는다.
+      final core = _sigunguCore(sigungu);
+      if (core != null) {
+        for (final c in cities) {
+          if (_sigunguCore(c.name) == core) add(c);
+        }
       }
     }
 
