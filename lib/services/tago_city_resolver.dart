@@ -14,6 +14,12 @@ class TagoCityResolver {
   /// 공백을 없앤 비교용 문자열.
   static String _norm(String s) => s.replaceAll(RegExp(r'\s+'), '');
 
+  /// TAGO 도시명 하나가 실제로는 **여러 지역을 묶은 것**일 수 있다:
+  /// `'대전광역시/계룡시'`, `'원주시/횡성군'` (2026-09-08 실제 목록 확인).
+  /// 슬래시로 갈라 각 조각을 따로 비교해야 횡성군 사용자가 32020에 걸린다.
+  static List<String> _nameParts(String s) =>
+      s.split('/').map(_norm).where((e) => e.isNotEmpty).toList();
+
   /// '성남시 분당구' → '성남시' (TAGO는 구 단위로 안 쪼갠다).
   static String _firstToken(String s) {
     final t = s.trim().split(RegExp(r'\s+'));
@@ -77,31 +83,44 @@ class TagoCityResolver {
       if (seen.add(c.code)) out.add(c);
     }
 
+    bool anyPart(TagoCity c, bool Function(String part) test) => _nameParts(c.name).any(test);
+
+    // 1) 시·군 이름이 그대로 일치 ('성남시' → '성남시')
     final sigungu = _norm(_firstToken(region.sigungu));
     if (sigungu.isNotEmpty) {
+      // 이름 **전체**가 같은 도시를 먼저 본다. 조합명의 한 조각과 같은 것보다
+      // 강한 신호이기 때문 — 계룡시 사용자는 '대전광역시/계룡시'(25)가 아니라
+      // 자기 코드 '계룡시'(34070)가 첫 후보여야 도(충남) 폴백이 살아난다.
       for (final c in cities) {
         if (_norm(c.name) == sigungu) add(c);
       }
-      // 접미사 표기가 다를 때('성남시' ↔ '성남')도 잡는다.
+      for (final c in cities) {
+        if (anyPart(c, (p) => p == sigungu)) add(c);
+      }
+      // 2) 접미사 표기만 다른 경우 ('성남시' ↔ '성남')
       final core = _sigunguCore(sigungu);
       if (core != null) {
         for (final c in cities) {
-          if (_sigunguCore(c.name) == core) add(c);
+          if (anyPart(c, (p) => _sigunguCore(p) == core)) add(c);
         }
       }
     }
 
+    // 3) 시도 이름이 그대로 일치 ('대전광역시' → '대전광역시/계룡시'의 앞 조각)
     final sido = _norm(region.sido);
     if (sido.isNotEmpty) {
       for (final c in cities) {
-        if (_norm(c.name) == sido) add(c);
+        if (anyPart(c, (p) => p == sido)) add(c);
       }
     }
 
+    // 4) 시도 앞 2글자로 시작 — 개편·약칭 표기차를 흡수한다.
+    //    카카오 '세종특별자치시' ↔ TAGO '세종특별시',
+    //    카카오 '제주특별자치도' ↔ TAGO '제주도' 가 여기서 걸린다.
     final core = _sidoCore(region.sido);
     if (core.isNotEmpty) {
       for (final c in cities) {
-        if (_norm(c.name).startsWith(core)) add(c);
+        if (anyPart(c, (p) => p.startsWith(core))) add(c);
       }
     }
     return out;
