@@ -13,17 +13,48 @@ class SeatComputation {
   final SunMode mode;
   final int boardIndex;
   final int alightIndex;
+  final SunCalc sun;
 
-  late final double azimuth = SunCalc.azimuth(minutes);
-  late final double altitude = SunCalc.altitude(minutes);
-  late final List<SegKind> segments = SeatCalc.segments(route.no, dirIndex, minutes, mode);
-  late final double windowPctValue = SeatCalc.windowPct(segments, boardIndex, alightIndex, dir.stops.length - 1, mode);
+  late final double azimuth = sun.azimuth(minutes);
+
+  /// 태양 고도(도). 예전엔 0~1 계수였는데 실제 각도로 바뀌었다.
+  late final double altitudeDeg = sun.altitudeDeg(minutes);
+
+  /// 일사 세기 0~1 — 좌석 점수용.
+  late final double intensity = sun.intensity(minutes);
+  /// 승차→하차 구간을 실제 정류장 좌표로 자른 것. 좌표가 없으면 빈 목록.
+  late final List<RouteSegment> routeSegments = SeatCalc.buildSegments(
+    dir: dir,
+    boardIdx: boardIndex,
+    alightIdx: alightIndex,
+    startMinutes: minutes,
+    durationMin: route.durationMin,
+    sun: sun,
+  );
+
+  /// 좌우 판정을 먼저 하고, 그 좌석 기준으로 구간을 분류한다 —
+  /// '그늘'인지 '볕'인지는 어느 쪽에 앉느냐에 따라 뒤집히기 때문.
   late final SeatAdvice advice = SeatCalc.advise(
-    busBearing: dir.bearing,
+    fallbackBearing: dir.bearing,
     minutes: minutes,
     mode: mode,
-    windowPct: windowPctValue,
+    sun: sun,
+    segments: routeSegments,
+    windowPct: SeatCalc.windowPct(
+      routeSegments,
+      routeSegments.isEmpty ? true : SeatCalc.preferLeftSeat(routeSegments, mode),
+    ),
   );
+
+  late final List<SegKind> segments = [
+    for (final s in routeSegments) s.kindFor(advice.leftSeat),
+  ];
+
+  /// 막대 폭에 쓸 실제 구간 거리(m).
+  late final List<double> segmentMeters = [for (final s in routeSegments) s.meters];
+
+  /// 구간 좌표가 없어 일사 분포를 못 그리는 노선인지.
+  bool get hasSegmentData => routeSegments.isNotEmpty;
 
   SeatComputation._({
     required this.route,
@@ -33,6 +64,7 @@ class SeatComputation {
     required this.mode,
     required this.boardIndex,
     required this.alightIndex,
+    required this.sun,
   });
 
   factory SeatComputation.build({
@@ -40,6 +72,7 @@ class SeatComputation {
     required int dirIndex,
     required int minutes,
     required SunMode mode,
+    required SunCalc sun,
     int board = 0,
     int? alight,
   }) {
@@ -55,6 +88,7 @@ class SeatComputation {
       mode: mode,
       boardIndex: bIdx,
       alightIndex: aIdx,
+      sun: sun,
     );
   }
 
@@ -63,7 +97,7 @@ class SeatComputation {
   String get spanLabel => '$boardName → $alightName';
   String get timeLabel => SunCalc.timeLabel(minutes);
   String get azimuthShort => '${azimuth.round()}°';
-  String get azimuthLong => '${azimuth.round()}° ${SunCalc.azimuthName(minutes)}';
+  String get azimuthLong => '${azimuth.round()}° ${sun.azimuthName(minutes)}';
 
   int get stopCount => dir.stopCount;
   int get durationMin => route.durationMin;

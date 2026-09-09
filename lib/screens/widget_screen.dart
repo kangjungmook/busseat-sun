@@ -20,7 +20,7 @@ class WidgetScreen extends StatelessWidget {
 
     SeatComputation? comp;
     if (fav != null && route != null) {
-      comp = SeatComputation.build(route: route, dirIndex: fav.dirIndex, minutes: state.minutes, mode: state.effectiveMode, board: fav.boardIndex, alight: fav.alightIndex);
+      comp = SeatComputation.build(route: route, dirIndex: fav.dirIndex, minutes: state.minutes, mode: state.effectiveMode, sun: state.sun, board: fav.boardIndex, alight: fav.alightIndex);
     }
     final adv = comp?.advice;
 

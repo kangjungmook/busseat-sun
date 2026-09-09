@@ -23,6 +23,7 @@ class TodayScreen extends StatelessWidget {
       dirIndex: f.dirIndex,
       minutes: state.minutes,
       mode: state.effectiveMode,
+      sun: state.sun,
       board: f.boardIndex,
       alight: f.alightIndex,
     );

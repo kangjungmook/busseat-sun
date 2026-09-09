@@ -21,8 +21,9 @@ class StopPickerScreen extends StatelessWidget {
     final last = stops.length - 1;
     final bIdx = state.boardIndex.clamp(0, last - 1 < 0 ? 0 : last - 1);
     final aIdx = state.alightIndex ?? last;
-    const nearM = 120;
-    final nearIdx = 1.clamp(0, last);
+    final near = state.nearestStop; // 실제 GPS·정류소 좌표 기반 (없으면 fallback)
+    final nearIdx = near?.index ?? (last > 0 ? 1 : 0);
+    final nearM = near?.meters.round();
 
     return SafeArea(
       child: Padding(
@@ -67,7 +68,14 @@ class StopPickerScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('현재 위치', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
-                        Text('강남역 11번 출구 근처', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.text)),
+                        Text(
+                          state.location == null
+                              ? '아직 위치를 확인하지 않았어요'
+                              // 지명을 받았으면 지명이 먼저다. 못 받았을 때만
+                              // 오차 표기로 "그래도 잡히긴 했다"를 알린다.
+                              : state.locationRegionLabel ?? 'GPS ${state.location!.accuracyLabel} 오차로 확인됨',
+                          style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.text),
+                        ),
                       ],
                     ),
                   ),
@@ -95,7 +103,9 @@ class StopPickerScreen extends StatelessWidget {
                   final isB = i == bIdx, isA = i == aIdx;
                   final dim = state.pickMode != 'board' && i <= bIdx;
                   final active = state.pickMode == 'board' ? isB : isA;
-                  final meta = i == nearIdx ? '현재 위치에서 ${nearM}m · 도보 2분' : (i == 0 ? '기점' : (i == last ? '종점' : '경유 정류장'));
+                  final meta = i == nearIdx
+                      ? (nearM != null ? '현재 위치에서 ${nearM}m · 도보 약 ${(nearM / 67).ceil().clamp(1, 99)}분' : '가장 가까울 것으로 추정')
+                      : (i == 0 ? '기점' : (i == last ? '종점' : '경유 정류장'));
                   final tagText = isB ? '탑승' : (isA ? '하차' : '');
                   return Opacity(
                     opacity: dim ? .42 : 1,

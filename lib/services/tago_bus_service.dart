@@ -17,6 +17,18 @@ import '../models/tago.dart';
 /// [findRouteNationwide]가 도시 하나에서 노선을 찾았을 때 함께 돌려주는 짝.
 typedef TagoRouteMatch = ({TagoCity city, TagoRoute route});
 
+/// TAGO 응답 본문을 **항상 UTF-8로** 읽는다.
+///
+/// TAGO는 Content-Type에 charset을 제대로 안 실어준다. 그런데 `http` 패키지의
+/// `Response.body`는 charset이 없으면 **latin1**로 디코딩해서(패키지 기본값),
+/// 정류장 이름·도시명 같은 한글이 전부 깨진 문자로 들어온다.
+/// (브라우저로 같은 URL을 열어도 "?몄쥌?밸퀧"처럼 깨져 보이는 게 같은 이유다.)
+/// 그래서 `body` 대신 `bodyBytes`를 직접 UTF-8로 디코딩한다.
+///
+/// `allowMalformed: true`는 혹시 진짜로 UTF-8이 아닌 응답이 와도 예외 대신
+/// 대체 문자로 넘어가게 해서, 인코딩 하나 때문에 검색 전체가 죽지 않게 한다.
+String decodeTagoBody(http.Response res) => utf8.decode(res.bodyBytes, allowMalformed: true);
+
 class TagoBusService {
   static const String _baseUrl = 'https://apis.data.go.kr/1613000/BusRouteInfoInqireService';
 
@@ -33,15 +45,16 @@ class TagoBusService {
       ...params,
     });
     final res = await http.get(uri);
+    final body = decodeTagoBody(res);
     if (res.statusCode != 200) {
-      throw TagoApiException('HTTP ${res.statusCode}', rawBody: res.body);
+      throw TagoApiException('HTTP ${res.statusCode}', rawBody: body);
     }
 
     late final dynamic decoded;
     try {
-      decoded = jsonDecode(res.body);
+      decoded = jsonDecode(body);
     } catch (_) {
-      throw TagoApiException('JSON 파싱 실패 (XML 에러 응답일 가능성) — rawBody 확인', rawBody: res.body);
+      throw TagoApiException('JSON 파싱 실패 (XML 에러 응답일 가능성) — rawBody 확인', rawBody: body);
     }
 
     // 서비스키 미등록/IP 미등록/활용기간 만료 등 공통 오류는 이 형식으로 온다
@@ -49,16 +62,18 @@ class TagoBusService {
     // {"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":..., "returnAuthMsg":..., "returnReasonCode":...}}}
     final cmmHeader = decoded['OpenAPI_ServiceResponse']?['cmmMsgHeader'];
     if (cmmHeader != null) {
+      // returnAuthMsg는 한글이라 깨져 보일 수 있어 영문 errMsg를 먼저 쓴다
+      // (예: 활용신청 안 된 서비스 → "NO_OPENAPI_SERVICE_ERROR", 코드 12).
       throw TagoApiException(
-        'TAGO 공통 오류(${cmmHeader['returnReasonCode']}): ${cmmHeader['returnAuthMsg']}',
-        rawBody: res.body,
+        'TAGO 공통 오류(${cmmHeader['returnReasonCode']}): ${cmmHeader['errMsg'] ?? cmmHeader['returnAuthMsg']}',
+        rawBody: body,
       );
     }
 
     final header = decoded['response']?['header'];
     final resultCode = header?['resultCode']?.toString();
     if (resultCode != null && resultCode != '00') {
-      throw TagoApiException('TAGO 오류 $resultCode: ${header?['resultMsg']}', rawBody: res.body);
+      throw TagoApiException('TAGO 오류 $resultCode: ${header?['resultMsg']}', rawBody: body);
     }
     return decoded as Map<String, dynamic>;
   }
@@ -82,20 +97,18 @@ class TagoBusService {
     return cities;
   }
 
-  /// 노선번호만 알고 도시를 모를 때 — 전국 도시코드를 순회하며 검색한다.
-  /// cityCode가 API 필수값이라 "전국 검색"이 따로 없어서, 앱이 대신
-  /// 도시 목록을 한 번 받아 여러 개를 동시에(과금·요청량 제한을 고려해
-  /// [concurrency]개씩 묶어서) 조회하는 방식으로 흉내낸다.
+  /// 주어진 [cities]에서만 노선번호를 찾는다 (동시 [concurrency]개씩).
   ///
-  /// 사용자가 도시코드를 몰라도(=대부분의 경우) 번호만 넣으면 앱이 알아서
-  /// 찾도록 하기 위한 함수 — [onProgress]로 진행 상황(몇 개 도시 중 몇 번째)을
-  /// 알려줄 수 있다.
-  static Future<List<TagoRouteMatch>> findRouteNationwide(
-    String routeNo, {
+  /// TAGO는 cityCode가 필수라 "도시를 모르는 검색"이 없다. 그래서 앱이 도시를
+  /// 하나씩 물어보는 수밖에 없는데, **호출 수가 곧 도시 수**라서 범위를 좁히는
+  /// 게 중요하다 (전국 = 150~250회, 개발계정 일일 한도가 보통 1,000건).
+  /// 범위 선택은 [TagoRouteRepository]가 위치 기반으로 단계적으로 넓힌다.
+  static Future<List<TagoRouteMatch>> findRouteInCities(
+    String routeNo,
+    List<TagoCity> cities, {
     int concurrency = 8,
     void Function(int done, int total)? onProgress,
   }) async {
-    final cities = await getCityCodes();
     final matches = <TagoRouteMatch>[];
     var done = 0;
 
@@ -118,6 +131,18 @@ class TagoBusService {
       onProgress?.call(done, cities.length);
     }
     return matches;
+  }
+
+  /// 전국 도시를 전부 훑는다 — **호출 수가 도시 수만큼(150~250회)** 나가므로
+  /// 마지막 수단으로만 쓴다. 평소 경로는 [TagoRouteRepository.search]가
+  /// 위치로 도시를 좁힌 뒤 [findRouteInCities]를 부르는 쪽이다.
+  static Future<List<TagoRouteMatch>> findRouteNationwide(
+    String routeNo, {
+    int concurrency = 8,
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final cities = await getCityCodes();
+    return findRouteInCities(routeNo, cities, concurrency: concurrency, onProgress: onProgress);
   }
 
   /// [노선번호목록 조회] getRouteNoList — cityCode 필수, routeNo 옵션(비우면 그 도시 전체 노선).
@@ -148,17 +173,37 @@ class TagoBusService {
   }
 
   /// [노선별경유정류소목록 조회] getRouteAcctoThrghSttnList — 정류소 이름+좌표+순번.
+  ///
+  /// 정류소가 [pageSize]개를 넘으면 `totalCount`를 보고 다음 페이지까지 이어
+  /// 받는다. 한 페이지만 받으면 긴 노선의 뒷부분이 통째로 잘려서, 종점이
+  /// 엉뚱한 정류장이 되고 그걸로 계산한 진행 방위(bearing)까지 틀어진다
+  /// — 좌석 판정이 조용히 잘못되는 경로라 페이징을 넣었다.
   static Future<List<TagoRouteStop>> getRouteStops({
     required String cityCode,
     required String routeId,
+    int pageSize = 200,
+    int maxPages = 10,
   }) async {
-    final decoded = await _get('getRouteAcctoThrghSttnList', {
-      'cityCode': cityCode,
-      'routeId': routeId,
-      'pageNo': '1',
-      'numOfRows': '100',
-    });
-    return _items(decoded).map(TagoRouteStop.fromJson).toList();
+    final stops = <TagoRouteStop>[];
+    var pageNo = 1;
+
+    while (pageNo <= maxPages) {
+      final decoded = await _get('getRouteAcctoThrghSttnList', {
+        'cityCode': cityCode,
+        'routeId': routeId,
+        'pageNo': '$pageNo',
+        'numOfRows': '$pageSize',
+      });
+      final items = _items(decoded);
+      stops.addAll(items.map(TagoRouteStop.fromJson));
+
+      // totalCount는 문자열로 올 수도 숫자로 올 수도 있다 (routeno가 "B7"/430
+      // 둘 다로 오는 것과 같은 이유) — toString 후 파싱한다.
+      final total = int.tryParse(decoded['response']?['body']?['totalCount']?.toString() ?? '');
+      if (items.isEmpty || total == null || stops.length >= total) break;
+      pageNo++;
+    }
+    return stops;
   }
 }
 

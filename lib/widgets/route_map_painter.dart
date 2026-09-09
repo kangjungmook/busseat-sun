@@ -71,7 +71,7 @@ class RouteMapPainter extends CustomPainter {
         return palette.primary;
       case SegKind.sun:
         return palette.sunDiscColor;
-      case SegKind.under:
+      case SegKind.weak:
         return palette.surface.grey;
     }
   }
@@ -119,7 +119,9 @@ class RouteMapPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
       final path = _segmentPath(i);
-      if (segments[i] == SegKind.under) {
+      // 좌우 차이가 거의 없는 구간은 점선으로 — 예전엔 '지하·터널'이었지만
+      // 그건 우리가 가진 적 없는 데이터였다.
+      if (segments[i] == SegKind.weak) {
         _drawDashedPath(canvas, path, paint, 2, 10);
       } else {
         canvas.drawPath(path, paint);

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../logic/sun_calc.dart';
 import '../models/route.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
@@ -18,7 +17,7 @@ class DirPickerSheet extends StatelessWidget {
     final state = context.watch<AppState>();
     final route = state.currentRoute;
     if (route == null) return const SizedBox.shrink();
-    final az = SunCalc.azimuth(state.minutes);
+    final az = state.sun.azimuth(state.minutes);
 
     return Positioned.fill(
       child: GestureDetector(

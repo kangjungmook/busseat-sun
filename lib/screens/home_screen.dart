@@ -38,6 +38,10 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
+            if (state.apiKeysMissing) ...[
+              _PreviewNotice(palette: palette, text: state.apiKeysMissingNotice),
+              const SizedBox(height: 8),
+            ],
             _LocationBar(palette: palette, state: state),
             const SizedBox(height: 6),
             _SunPanel(palette: palette, state: state),
@@ -71,7 +75,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 9),
             SolidButton(
               text: state.ctaText,
-              onTap: (hasQuery && !state.searching) ? state.submitSearch : null,
+              onTap: state.canSubmitSearch ? state.submitSearch : null,
               palette: palette,
             ),
           ],
@@ -90,8 +94,20 @@ class _LocationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = state.location;
-    final label = loc == null ? '강남역 11번 출구 근처' : '현재 위치 (${loc.lat.toStringAsFixed(4)}, ${loc.lon.toStringAsFixed(4)})';
-    final acc = loc == null ? '±8m' : loc.accuracyLabel;
+    // 위치를 못 받았으면 그렇다고 말한다. 예전엔 '강남역 11번 출구 근처'와
+    // 'GPS ±8m'를 그냥 박아뒀는데, 위치를 켠 적도 없는 사용자에게 정확한 위치를
+    // 잡은 것처럼 보였다.
+    //
+    // 반대로 좌표를 그대로 띄우는 것도(`36.4981, 127.3228`) 정직하긴 해도
+    // 읽는 사람에겐 아무 의미가 없다. 카카오 로컬로 받은 지명을 먼저 쓰고,
+    // 그게 없으면 가까운 정류장 이름, 그것도 없으면 담백한 문구로 내려간다.
+    final label = loc == null
+        ? (state.locationLoading ? '위치를 확인하는 중…' : '위치를 확인하려면 탭하세요')
+        : state.locationRegionLabel ??
+            (state.nearbyStationLabel != null
+                ? '${state.nearbyStationLabel!.name} 근처'
+                : '현재 위치를 확인했어요');
+    final acc = loc == null ? '꺼짐' : loc.accuracyLabel;
     return GestureDetector(
       onTap: state.refreshLocation,
       child: Container(
@@ -127,9 +143,9 @@ class _SunPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final day = SunCalc.dayProgress(state.minutes);
-    final alt = SunCalc.altitude(state.minutes);
-    final fillColor = alt > 0.02 ? palette.sunDiscColor : palette.surface.grey;
+    final day = state.sun.dayProgress(state.minutes);
+    final alt = state.sun.altitudeDeg(state.minutes);
+    final fillColor = alt > 0 ? palette.sunDiscColor : palette.surface.grey;  // 고도(도)
     return Container(
       height: 92,
       decoration: BoxDecoration(color: palette.surfaceColor, borderRadius: BorderRadius.circular(20), boxShadow: [palette.cardShadow]),
@@ -149,19 +165,19 @@ class _SunPanel extends StatelessWidget {
             left: 16,
             top: 12,
             child: Text(
-              '${SunCalc.timeLabel(state.minutes)} · 고도 ${(alt * 62).round()}° · ${SunCalc.azimuthName(state.minutes)}',
+              '${SunCalc.timeLabel(state.minutes)} · 고도 ${alt.round()}° · ${state.sun.azimuthName(state.minutes)}',
               style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12.5, fontWeight: FontWeight.w800, color: palette.text),
             ),
           ),
           Positioned(
             left: 16,
             bottom: 12,
-            child: Text('일출 05:58', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
+            child: Text('일출 ${SunCalc.timeLabel(state.sun.sunriseMin)}', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
           ),
           Positioned(
             right: 16,
             bottom: 12,
-            child: Text('일몰 19:04', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
+            child: Text('일몰 ${SunCalc.timeLabel(state.sun.sunsetMin)}', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, fontWeight: FontWeight.w700, color: palette.textMuted)),
           ),
         ],
       ),
@@ -281,6 +297,18 @@ class _FavoriteRow extends StatelessWidget {
   }
 }
 
+/// "가까운 정류장" 캡션. 값은 [AppState.nearbyStationLabel]이 채운다
+/// (TAGO 좌표기반 조회 → 실패 시 캐시된 노선 정류장 순).
+/// 위치를 아직 안 받았거나 후보가 없으면 조용히 안내 문구로 대체한다.
+String _nearbyStationCaption(AppState state) {
+  if (state.apiKeysMissing) return '미리보기에서는 조회할 수 없어요';
+  if (state.nearbyStationLoading) return '가까운 정류장 찾는 중…';
+  if (state.location == null) return '위치 아이콘을 눌러 확인';
+  final near = state.nearbyStationLabel;
+  if (near == null) return '주변 정류장 정보 없음';
+  return '${near.name} · ${near.meters.round()}m';
+}
+
 class _RecentsRow extends StatelessWidget {
   final AppPalette palette;
   final AppState state;
@@ -289,7 +317,14 @@ class _RecentsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recents = [kSeedRoutes[0], kSeedRoutes[2], kSeedRoutes[4]];
+    // **조회에 성공해서 캐시된 실제 노선만** 보여준다.
+    //
+    // 예전에는 시드 상수(9401·3401·140)를 띄웠는데 두 가지가 문제였다:
+    // TAGO가 서울을 담당하지 않아 검색으로는 절대 나올 수 없는 번호들이었고,
+    // 누르면 손으로 적어둔 방위·소요시간으로 계산된 좌석 추천이 실제 결과와
+    // 똑같은 화면에 떴다. "3초 안에 알려준다"는 앱에서 그 3초가 지어낸 값이면
+    // 사용자는 그걸 믿고 자리를 잡는다.
+    final recents = state.routeCache.values.toList().reversed.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -299,41 +334,64 @@ class _RecentsRow extends StatelessWidget {
           children: [
             Text('가까운 정류장', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .3, color: palette.textMuted)),
             const SizedBox(width: 6),
-            Text('강남역.중앙차로 · 120m', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, color: palette.primaryText)),
+            Expanded(
+              child: Text(
+                _nearbyStationCaption(state),
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, color: palette.primaryText),
+              ),
+            ),
           ],
         ),
+        const SizedBox(height: 14),
+        Text('최근 검색한 노선', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .3, color: palette.textMuted)),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 62,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: recents.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, i) {
-              final r = recents[i];
-              return Material(
-                color: palette.surfaceColor,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
+        if (recents.isEmpty)
+          Container(
+            height: 62,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: palette.line),
+            ),
+            child: Text(
+              '번호를 검색하면 여기에 쌓여요',
+              style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13, color: palette.textMuted),
+            ),
+          )
+        else
+          SizedBox(
+            height: 62,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: recents.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final r = recents[i];
+                return Material(
+                  color: palette.surfaceColor,
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => state.chooseRoute(r),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: palette.line)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(r.no, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -.4, color: palette.text)),
-                        Text(r.dirs.first.name, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, color: palette.textMuted)),
-                      ],
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => state.chooseRoute(r),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: palette.line)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(r.no, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -.4, color: palette.text)),
+                          Text(r.dirs.first.name, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, color: palette.textMuted)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
@@ -371,7 +429,10 @@ class _SearchHint extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 4),
       child: Text(
-        '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
+        // 키가 없으면 버튼이 비활성이라, "눌러서 찾아요"는 거짓말이 된다.
+        state.apiKeysMissing
+            ? '실제 검색은 앱을 설치해야 동작해요.'
+            : '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
         style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted),
       ),
     );
@@ -419,6 +480,51 @@ class _Keypad extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+
+/// API 키 없이 돌 때 홈 맨 위에 뜨는 안내 띠.
+///
+/// 카드를 하나 더 쌓지 않고 위치 바와 같은 결(둥근 subtle 배경)로 맞춘다.
+/// 경고색을 쓰지 않는 이유: 사용자가 뭘 잘못한 게 아니라 이 빌드의 성질이라
+/// 겁줄 일이 아니다. 대신 본문 색을 써서 읽히게는 한다.
+class _PreviewNotice extends StatelessWidget {
+  final AppPalette palette;
+  final String text;
+
+  const _PreviewNotice({required this.palette, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.subtle,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: palette.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontFamily: AppTextStyles.family,
+                fontSize: 12,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: palette.text,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

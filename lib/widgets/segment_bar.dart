@@ -1,17 +1,29 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../logic/seat_advice.dart';
 import '../theme/tokens.dart';
 
-const List<int> kSegWeightsUi = [14, 22, 9, 26, 11, 18];
-
-/// 구간별 일사 6분할 막대 — 300ms 좌→우 채움 애니메이션.
+/// 구간별 일사 막대 — 300ms 좌→우 채움 애니메이션.
+///
+/// 막대 폭은 **실제 구간 거리**에 비례한다. 예전엔 `[14, 22, 9, 26, 11, 18]`
+/// 고정 비율이었는데, 그건 노선과 아무 상관 없는 숫자였다.
 class SegmentBar extends StatefulWidget {
   final List<SegKind> segments;
+
+  /// 구간별 실제 거리(m). 비어 있으면 균등 분할한다.
+  final List<double> meters;
   final AppPalette palette;
   final double height;
 
-  const SegmentBar({super.key, required this.segments, required this.palette, this.height = 36});
+  const SegmentBar({
+    super.key,
+    required this.segments,
+    required this.palette,
+    this.meters = const [],
+    this.height = 36,
+  });
 
   @override
   State<SegmentBar> createState() => _SegmentBarState();
@@ -47,7 +59,7 @@ class _SegmentBarState extends State<SegmentBar> with SingleTickerProviderStateM
         return p.primary;
       case SegKind.sun:
         return p.sunDiscColor;
-      case SegKind.under:
+      case SegKind.weak:
         return p.surface.grey;
     }
   }
@@ -74,8 +86,11 @@ class _SegmentBarState extends State<SegmentBar> with SingleTickerProviderStateM
           child: Row(
             children: List.generate(widget.segments.length, (i) {
               final k = widget.segments[i];
+              // flex는 정수라 미터를 그대로 못 쓴다 — 10m 단위로 반올림하고
+              // 아주 짧은 구간도 보이도록 최소 1을 준다.
+              final flex = i < widget.meters.length ? math.max(1, (widget.meters[i] / 10).round()) : 1;
               return Expanded(
-                flex: kSegWeightsUi[i],
+                flex: flex,
                 child: Container(
                   height: widget.height,
                   decoration: BoxDecoration(
@@ -109,11 +124,11 @@ class SegmentLegend extends StatelessWidget {
         const SizedBox(width: 13),
         dot(palette.sunDiscColor),
         const SizedBox(width: 5),
-        Text('햇빛', style: style()),
+        Text('볕 듦', style: style()),
         const SizedBox(width: 13),
         dot(palette.surface.grey),
         const SizedBox(width: 5),
-        Text('지하·터널', style: style()),
+        Text('차이 적음', style: style()),
       ],
     );
   }

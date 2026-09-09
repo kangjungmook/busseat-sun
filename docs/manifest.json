@@ -1,0 +1,35 @@
+{
+    "name": "햇살좌석",
+    "short_name": "햇살좌석",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#FAFAF9",
+    "theme_color": "#FAFAF9",
+    "description": "버스 타기 직전 3초. 어느 쪽 창가에 앉을지만 알려드려요.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

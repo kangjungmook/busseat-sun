@@ -1,14 +1,18 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/kakao_js_config.dart';
 import '../logic/computation.dart';
 import '../logic/seat_advice.dart';
 import '../logic/sun_calc.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/kakao_map_view.dart';
 import '../widgets/route_map_painter.dart';
-import '../widgets/segment_bar.dart';
 
 class MapScreen extends StatelessWidget {
   final AppPalette palette;
@@ -22,8 +26,18 @@ class MapScreen extends StatelessWidget {
     final dir = state.currentDir;
     if (route == null || dir == null) return const SizedBox.shrink();
 
-    final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, board: state.boardIndex, alight: state.alightIndex);
+    final comp = SeatComputation.build(route: route, dirIndex: state.dirIndex, minutes: state.minutes, mode: state.effectiveMode, sun: state.sun, board: state.boardIndex, alight: state.alightIndex);
     final adv = comp.advice;
+
+    // 실제 정류장 좌표(TAGO)가 있고 카카오맵 JS 키가 설정된 경우에만 실제 지도로
+    // 바꾼다. 둘 중 하나라도 없으면 기존 도로 그리드 플레이스홀더로 대체한다
+    // (README "지도 SDK" 절 참고).
+    //
+    // 웹에서는 항상 플레이스홀더다 — `webview_flutter`가 웹을 지원하지 않아서
+    // [KakaoMapView]를 만들면 터진다. 웹은 UI 미리보기 전용이라(README 참고)
+    // 여기서 막아두면 키가 채워져 있어도 안전하다.
+    final mapStops = dir.mappableStops;
+    final useRealMap = !kIsWeb && KakaoJsConfig.isConfigured && mapStops.isNotEmpty;
 
     return SafeArea(
       top: false,
@@ -40,24 +54,38 @@ class MapScreen extends StatelessWidget {
 
               return Stack(
                 children: [
-                  Positioned.fill(child: CustomPaint(painter: RouteMapPainter(palette: palette, segments: comp.segments))),
-                  Positioned(
-                    left: originC.dx - 15,
-                    top: originC.dy - 15,
-                    child: Container(width: 30, height: 30, decoration: BoxDecoration(color: palette.primary, shape: BoxShape.circle, boxShadow: [palette.cardShadow]), child: const Icon(Icons.directions_bus, color: Colors.white, size: 16)),
-                  ),
-                  Positioned(left: originC.dx - 40, top: originC.dy + 20, child: _MapLabel(text: dir.from, palette: palette)),
-                  Positioned(
-                    left: destC.dx - 14,
-                    top: destC.dy - 14,
-                    child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: kLocationBlue, shape: BoxShape.circle), child: const Icon(Icons.location_on, color: Colors.white, size: 15)),
-                  ),
-                  Positioned(left: destC.dx + 6, top: destC.dy - 2, child: _MapLabel(text: dir.to, palette: palette)),
-                  Positioned(
-                    left: locC.dx - 17,
-                    top: locC.dy - 17,
-                    child: SizedBox(width: 34, height: 34, child: Center(child: _PulseDot())),
-                  ),
+                  ...useRealMap
+                      ? [
+                          Positioned.fill(
+                            child: KakaoMapView(
+                              key: ValueKey('${route.no}-${state.dirIndex}'),
+                              lat: mapStops[mapStops.length ~/ 2].point.lat,
+                              lng: mapStops[mapStops.length ~/ 2].point.lng,
+                              level: 6,
+                              stops: [for (final s in mapStops) MapStop(name: s.name, lat: s.point.lat, lng: s.point.lng)],
+                            ),
+                          ),
+                        ]
+                      : [
+                          Positioned.fill(child: CustomPaint(painter: RouteMapPainter(palette: palette, segments: comp.segments))),
+                          Positioned(
+                            left: originC.dx - 15,
+                            top: originC.dy - 15,
+                            child: Container(width: 30, height: 30, decoration: BoxDecoration(color: palette.primary, shape: BoxShape.circle, boxShadow: [palette.cardShadow]), child: const Icon(Icons.directions_bus, color: Colors.white, size: 16)),
+                          ),
+                          Positioned(left: originC.dx - 40, top: originC.dy + 20, child: _MapLabel(text: dir.from, palette: palette)),
+                          Positioned(
+                            left: destC.dx - 14,
+                            top: destC.dy - 14,
+                            child: Container(width: 28, height: 28, decoration: const BoxDecoration(color: kLocationBlue, shape: BoxShape.circle), child: const Icon(Icons.location_on, color: Colors.white, size: 15)),
+                          ),
+                          Positioned(left: destC.dx + 6, top: destC.dy - 2, child: _MapLabel(text: dir.to, palette: palette)),
+                          Positioned(
+                            left: locC.dx - 17,
+                            top: locC.dy - 17,
+                            child: SizedBox(width: 34, height: 34, child: Center(child: _PulseDot())),
+                          ),
+                        ],
                   Positioned(
                     right: 14,
                     top: 74,
@@ -292,12 +320,15 @@ class _MapSheet extends StatelessWidget {
             children: [
               for (var i = 0; i < comp.segments.length; i++)
                 Expanded(
-                  flex: kSegWeightsUi[i],
+                  // 실제 구간 거리에 비례 (10m 단위, 최소 1)
+                  flex: i < comp.segmentMeters.length ? math.max(1, (comp.segmentMeters[i] / 10).round()) : 1,
                   child: Container(
                     height: 8,
                     margin: EdgeInsets.only(right: i < comp.segments.length - 1 ? 5 : 0),
                     decoration: BoxDecoration(
-                      color: comp.segments[i] == SegKind.shade ? palette.primary : (comp.segments[i] == SegKind.sun ? palette.sunDiscColor : palette.surface.grey),
+                      color: comp.segments[i] == SegKind.shade
+                          ? palette.primary
+                          : (comp.segments[i] == SegKind.sun ? palette.sunDiscColor : palette.surface.grey),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),

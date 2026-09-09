@@ -1,13 +1,20 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../config/tago_config.dart';
+import '../logic/geo.dart';
 import '../logic/sun_calc.dart';
 import '../models/route.dart';
 import '../models/user.dart';
 import '../services/favorites_store.dart';
 import '../services/kakao_auth_service.dart';
+import '../services/kakao_local_service.dart';
 import '../services/location_service.dart';
 import '../services/route_cache.dart';
 import '../services/tago_route_repository.dart';
+import '../services/tago_station_service.dart';
 import '../theme/tokens.dart';
 
 enum AppScreen {
@@ -87,6 +94,41 @@ class AppState extends ChangeNotifier {
   LocationResult? location;
   bool locationLoading = false;
 
+  /// TAGO 키 없이 돌고 있는가. 공개 웹 빌드(GitHub Pages)는 키 없이 컴파일하고,
+  /// 로컬에서도 `--dart-define-from-file`을 빼먹으면 이 상태가 된다.
+  ///
+  /// 이걸 드러내는 이유: 예전에는 키가 없어도 검색을 그냥 시도했고, 실패하면
+  /// "네트워크를 확인해 주세요"라고 말했다. 네트워크는 멀쩡한데 말이다.
+  /// 사용자는 앱이 고장 났다고 생각하고, 고칠 방법도 없다.
+  bool get apiKeysMissing => !TagoConfig.isConfigured;
+
+  /// [apiKeysMissing]일 때 홈 화면에 띄울 안내. 웹이냐 아니냐로 할 말이 다르다.
+  String get apiKeysMissingNotice => kIsWeb
+      ? '웹 미리보기라 노선 검색과 주변 정류장이 꺼져 있어요. 화면 구성만 둘러볼 수 있습니다.'
+      : 'API 키 없이 실행 중이에요. --dart-define-from-file=secrets/dart_defines.json 으로 다시 실행해 주세요.';
+
+  /// 화면에 보여줄 현재 위치의 지명 (예: '유성구 봉명동'). 카카오 로컬로 받는다.
+  /// 못 받으면 null이고, 그때는 좌표 숫자 대신 다른 문구로 대체한다 —
+  /// 위경도를 그대로 띄우면 사용자에게 아무 의미가 없다.
+  String? locationRegionLabel;
+
+  /// [locationRegionLabel]을 만든 좌표. 조금 움직였다고 다시 부르지 않으려고 둔다.
+  double? _regionLabelLat;
+  double? _regionLabelLng;
+
+  /// 이 거리 안에서 다시 위치를 받으면 지명은 그대로 쓴다. 동 하나가 보통
+  /// 이보다 크고, 카카오 로컬은 개발계정 일일 한도가 있어서 아껴 쓴다.
+  static const double _regionLabelReuseMeters = 300;
+
+  // 홈 화면 "가까운 정류장" 캡션 — 이름 + 현재 위치로부터의 거리(m).
+  ({String name, double meters})? nearbyStationLabel;
+  bool nearbyStationLoading = false;
+
+  /// 캡션에 쓸 정류장의 최대 거리. 캐시된 노선으로 대체 계산할 때(다른 도시
+  /// 노선만 캐시돼 있을 수 있다) "350km 떨어진 정류장"을 가까운 정류장이라고
+  /// 우기지 않도록 자른다.
+  static const double _nearbyCaptionMaxMeters = 2000;
+
   // 결과 화면 진입 애니메이션 트리거
   bool resultEntered = false;
 
@@ -118,11 +160,17 @@ class AppState extends ChangeNotifier {
   }
 
   /// 캐시에 없으면 조용히 백그라운드에서 채워온다 (실패해도 화면을 막지 않는다).
+  ///
+  /// **전국 검색은 하지 않는다** (`allowNationwide: false`). 이건 사용자가
+  /// 요청한 적 없는 백그라운드 작업인데, 전국 스캔은 즐겨찾기 하나당 API를
+  /// 200번 쓴다 — 즐겨찾기 3개면 앱을 켜는 것만으로 하루 한도가 날아간다.
+  /// 여기서 못 채우면 사용자가 직접 검색할 때 넓은 범위로 다시 찾는다.
   Future<void> ensureRouteCached(String routeNo) async {
     if (routeCache.containsKey(routeNo) || _resolving.contains(routeNo)) return;
     _resolving.add(routeNo);
     try {
-      final route = await TagoRouteRepository.search(routeNo);
+      final result = await TagoRouteRepository.search(routeNo, near: location, allowNationwide: false);
+      final route = result.route;
       if (route != null) await _cacheRoute(route);
     } catch (_) {
       // '오늘' 화면은 다음에 다시 시도된다 — 여기서 에러를 표면화하지 않는다.
@@ -141,7 +189,17 @@ class AppState extends ChangeNotifier {
 
   SunMode get effectiveMode => modeOverride ?? (seasonAuto ? seasonalDefault : SunMode.shade);
 
-  bool get isNight => SunCalc.isNight(minutes);
+  /// 지금 위치·날짜 기준 태양. 위치를 못 받았으면 전국 중심(대전 부근)으로
+  /// 계산한다 — 위도가 1° 다르면 태양 고도도 1° 달라지므로, 정확한 값을
+  /// 원하면 위치 권한이 필요하다.
+  SunCalc get sun => SunCalc(
+        lat: location?.lat ?? SunCalc.fallbackLat,
+        lng: location?.lon ?? SunCalc.fallbackLng,
+        date: DateTime.now(),
+        tzOffset: SunCalc.kstOffset,
+      );
+
+  bool get isNight => sun.isNight(minutes);
 
   BusRoute? get currentRoute => resolvedRoute;
 
@@ -154,10 +212,15 @@ class AppState extends ChangeNotifier {
   List<String> get keypadKeys => keypadMode == 'abc' ? kAbcKeys : kNumKeys;
 
   String get ctaText {
+    if (apiKeysMissing) return '이 미리보기에서는 검색할 수 없어요';
     if (searching) return '검색 중…';
     if (query.isEmpty) return '버스 번호를 입력하세요';
     return '$query번 ${effectiveMode == SunMode.shade ? '그늘' : '햇살'} 계산하기';
   }
+
+  /// 검색 버튼을 누를 수 있는가. 키가 없으면 눌러봐야 같은 안내만 다시 뜨므로
+  /// 아예 비활성으로 둔다 — 홈 상단 배너가 이미 이유를 말하고 있다.
+  bool get canSubmitSearch => query.isNotEmpty && !searching && !apiKeysMissing;
 
   String get todayGreeting {
     final hh = DateTime.now().hour;
@@ -246,21 +309,46 @@ class AppState extends ChangeNotifier {
     final q = query.trim();
     if (q.isEmpty || searching) return;
 
+    // 버튼이 이미 비활성이라 여기 올 일은 없지만(canSubmitSearch), 즐겨찾기
+    // 프리페치 같은 다른 경로가 들어올 수 있어 방어로 남긴다. 문구를 다시
+    // 띄우지는 않는다 — 홈 배너가 같은 말을 하고 있어서 두 번 말하게 된다.
+    if (apiKeysMissing) return;
+
     searching = true;
     searchError = null;
     screen = AppScreen.loading;
     notifyListeners();
 
-    BusRoute? route;
-    try {
-      route = routeCache[q] ?? await TagoRouteRepository.search(q);
-    } catch (_) {
-      route = null;
-      searchError = '노선 정보를 불러오지 못했어요. 네트워크를 확인해 주세요.';
+    // 위치를 먼저 확보한다 — 있으면 검색 범위를 내 지역으로 좁혀서 API 호출이
+    // 200회에서 1~2회로 줄어든다 (TagoRouteRepository.search 참고).
+    // 실패해도 검색 자체는 진행한다(전국 검색으로 폴백).
+    if (location == null) {
+      try {
+        await refreshLocation();
+      } catch (_) {
+        // 권한 거부/센서 없음 — 넓게 찾는 쪽으로 넘어간다.
+      }
+    }
+
+    BusRoute? route = routeCache[q];
+    String? unsupportedRegion;
+    if (route == null) {
+      try {
+        final result = await TagoRouteRepository.search(q, near: location);
+        route = result.route;
+        unsupportedRegion = result.unsupportedRegion;
+      } catch (_) {
+        route = null;
+        searchError = '노선 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+      }
     }
 
     searching = false;
     if (route == null) {
+      // 지역 자체가 미지원이면 번호를 고쳐 넣어도 소용없다 — 그렇게 말해준다.
+      if (unsupportedRegion != null) {
+        searchError = '$unsupportedRegion 버스는 아직 지원하지 않아요.\n다른 지역에서는 정상 동작합니다.';
+      }
       searchError ??= '"$q"번 노선을 찾을 수 없어요. 번호를 확인해 주세요.';
       screen = AppScreen.home;
       notifyListeners();
@@ -383,11 +471,34 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 현재 방면의 정류장 중 사용자 위치에서 가장 가까운 것 — TAGO가 준 실제
+  /// 좌표(stopCoords)와 GPS 좌표를 하버사인으로 비교한다. 좌표가 없는 정류장
+  /// (시드 데이터 등)이거나 위치를 못 얻었으면 null.
+  ({int index, double meters})? get nearestStop {
+    final dir = currentDir;
+    final loc = location;
+    if (dir == null || loc == null) return null;
+    int? bestIdx;
+    double? bestDist;
+    for (var i = 0; i < dir.stops.length; i++) {
+      final c = dir.coordAt(i);
+      if (c == null) continue;
+      final d = haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: c.lat, lng2: c.lng);
+      if (bestDist == null || d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx == null || bestDist == null) return null;
+    return (index: bestIdx, meters: bestDist);
+  }
+
   Future<void> useNearestStop() async {
-    // 실제 서비스에서는 TOPIS API로 좌표 기반 최근접 정류장을 조회한다.
     final dir = currentDir;
     if (dir == null) return;
-    final nearIdx = 1.clamp(0, dir.stops.length - 1);
+    if (location == null) await refreshLocation();
+    final near = nearestStop;
+    final nearIdx = near?.index ?? (dir.stops.length > 1 ? 1 : 0);
     if (pickMode == 'board') {
       boardIndex = nearIdx;
     } else {
@@ -452,7 +563,7 @@ class AppState extends ChangeNotifier {
       resultEntered = false;
       notifyListeners();
       try {
-        route = await TagoRouteRepository.search(fav.routeNo);
+        route = (await TagoRouteRepository.search(fav.routeNo, near: location)).route;
       } catch (_) {
         route = null;
       }
@@ -520,5 +631,90 @@ class AppState extends ChangeNotifier {
       locationLoading = false;
       notifyListeners();
     }
+    if (location != null) {
+      unawaited(_loadNearestStation());
+      unawaited(_loadRegionLabel());
+    }
+  }
+
+  /// 좌표 → 지명. 실패하면 조용히 null로 남긴다(화면은 문구로 대체된다).
+  Future<void> _loadRegionLabel() async {
+    final loc = location;
+    if (loc == null) return;
+
+    // 같은 동네면 이미 받아둔 이름을 그대로 쓴다.
+    final prevLat = _regionLabelLat, prevLng = _regionLabelLng;
+    if (locationRegionLabel != null && prevLat != null && prevLng != null) {
+      final moved = haversineMeters(lat1: prevLat, lng1: prevLng, lat2: loc.lat, lng2: loc.lon);
+      if (moved < _regionLabelReuseMeters) return;
+    }
+
+    KakaoRegion? region;
+    try {
+      region = await KakaoLocalService.regionForCoord(lat: loc.lat, lng: loc.lon);
+    } catch (_) {
+      region = null; // 네트워크/키 문제 — 지명 없이 간다.
+    }
+    if (region == null) return;
+
+    locationRegionLabel = region.displayName;
+    _regionLabelLat = loc.lat;
+    _regionLabelLng = loc.lon;
+    notifyListeners();
+  }
+
+  /// 홈 화면 "가까운 정류장" 캡션 — 실패해도 화면을 막지 않고 조용히 넘어간다.
+  ///
+  /// 1순위는 TAGO 좌표기반 정류소 조회(전국 아무 정류소나 찾을 수 있음)지만,
+  /// 그 서비스는 별도 활용신청이 필요해서 지금 키로는 `NO_OPENAPI_SERVICE_ERROR`가
+  /// 온다 (2026-09-07 확인). 그래서 실패하면 2순위로 **이미 받아둔 노선 캐시의
+  /// 정류장 좌표**에서 가장 가까운 것을 찾는다 — 검증된 버스노선정보 API
+  /// 데이터라 추가 신청 없이 동작한다. 다만 캐시에 있는 노선(즐겨찾기·최근 검색)
+  /// 위의 정류장만 후보가 된다.
+  Future<void> _loadNearestStation() async {
+    final loc = location;
+    if (loc == null || apiKeysMissing) return;
+    nearbyStationLoading = true;
+    notifyListeners();
+
+    ({String name, double meters})? found;
+    try {
+      final stations = await TagoStationService.findNearby(lat: loc.lat, lng: loc.lon, numOfRows: 5);
+      if (stations.isNotEmpty) {
+        final s = stations.first;
+        found = (
+          name: s.nodeName,
+          meters: haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: s.lat, lng2: s.lng),
+        );
+      }
+    } catch (_) {
+      // 활용신청 안 됨/네트워크 실패 — 아래 캐시 기반 대체로 넘어간다.
+    }
+
+    found ??= _nearestStopInCachedRoutes(loc);
+    nearbyStationLabel = (found != null && found.meters <= _nearbyCaptionMaxMeters) ? found : null;
+    nearbyStationLoading = false;
+    notifyListeners();
+  }
+
+  /// 캐시된 노선들의 정류장 중 [loc]에서 가장 가까운 것.
+  ({String name, double meters})? _nearestStopInCachedRoutes(LocationResult loc) {
+    String? bestName;
+    double? bestDist;
+    for (final route in routeCache.values) {
+      for (final dir in route.dirs) {
+        for (var i = 0; i < dir.stops.length; i++) {
+          final c = dir.coordAt(i);
+          if (c == null) continue;
+          final d = haversineMeters(lat1: loc.lat, lng1: loc.lon, lat2: c.lat, lng2: c.lng);
+          if (bestDist == null || d < bestDist) {
+            bestDist = d;
+            bestName = dir.stops[i];
+          }
+        }
+      }
+    }
+    if (bestName == null || bestDist == null) return null;
+    return (name: bestName, meters: bestDist);
   }
 }

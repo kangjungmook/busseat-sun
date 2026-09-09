@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 
+/// WGS84 좌표 하나. TAGO 정류소 좌표(gpslati/gpslong), 사용자 GPS 위치에 쓴다.
+class GeoPoint {
+  final double lat;
+  final double lng;
+
+  const GeoPoint({required this.lat, required this.lng});
+
+  Map<String, dynamic> toJson() => {'lat': lat, 'lng': lng};
+
+  factory GeoPoint.fromJson(Map<String, dynamic> json) => GeoPoint(
+        lat: (json['lat'] as num).toDouble(),
+        lng: (json['lng'] as num).toDouble(),
+      );
+}
+
 /// 방면 하나 — 기점→종점, 진행 방위, 정류장.
 class RouteDir {
   final String name; // '서울역 방면'
@@ -9,6 +24,9 @@ class RouteDir {
   final double bearing; // 진행 방위 (도, 0=북, 시계방향) — 좌석 계산의 핵심
   final List<String> stops; // 표시용 주요 정류장
   final int stopCount; // 실제 정류장 수
+  // stops[i]의 좌표. TAGO가 실제로 준 정류소만 채워지고 그 외는 null이다
+  // (좌표 없이 만들면 빈 리스트 — coordAt이 안전하게 null을 돌려준다).
+  final List<GeoPoint?> stopCoords;
 
   const RouteDir({
     required this.name,
@@ -17,7 +35,20 @@ class RouteDir {
     required this.bearing,
     required this.stops,
     required this.stopCount,
+    this.stopCoords = const [],
   });
+
+  GeoPoint? coordAt(int i) => i >= 0 && i < stopCoords.length ? stopCoords[i] : null;
+
+  /// 지도에 그릴 수 있는(좌표가 있는) 정류장만 이름과 함께 뽑는다.
+  List<({String name, GeoPoint point})> get mappableStops {
+    final out = <({String name, GeoPoint point})>[];
+    for (var i = 0; i < stops.length; i++) {
+      final p = coordAt(i);
+      if (p != null) out.add((name: stops[i], point: p));
+    }
+    return out;
+  }
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -26,6 +57,7 @@ class RouteDir {
         'bearing': bearing,
         'stops': stops,
         'stopCount': stopCount,
+        'stopCoords': stopCoords.map((c) => c?.toJson()).toList(),
       };
 
   factory RouteDir.fromJson(Map<String, dynamic> json) => RouteDir(
@@ -35,6 +67,10 @@ class RouteDir {
         bearing: (json['bearing'] as num).toDouble(),
         stops: (json['stops'] as List).map((e) => e as String).toList(),
         stopCount: json['stopCount'] as int,
+        stopCoords: (json['stopCoords'] as List?)
+                ?.map((e) => e == null ? null : GeoPoint.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
       );
 }
 
@@ -91,98 +127,3 @@ class Favorite {
     this.alightIndex,
   });
 }
-
-/// 시드 데이터 — 프로토타입과 동일. 실제 검색은 TagoRouteRepository(실시간
-/// TAGO API)가 우선이고, 이건 "가까운 정류장" 예시 칩과 오프라인/API 실패 시
-/// 대체용으로만 쓴다.
-final List<BusRoute> kSeedRoutes = [
-  const BusRoute(no: '9401', kind: '직행좌석', durationMin: 42, dirs: [
-    RouteDir(
-      name: '서울역 방면',
-      from: '강남역',
-      to: '종로2가',
-      bearing: 15,
-      stops: ['강남역', '신논현', '서울역', '종로2가'],
-      stopCount: 10,
-    ),
-    RouteDir(
-      name: '경기광주 방면',
-      from: '종로2가',
-      to: '강남역',
-      bearing: 195,
-      stops: ['종로2가', '서울역', '신논현', '강남역'],
-      stopCount: 11,
-    ),
-  ]),
-  const BusRoute(no: '9404', kind: '직행좌석', durationMin: 51, dirs: [
-    RouteDir(
-      name: '신사 방면',
-      from: '분당수내',
-      to: '신사역',
-      bearing: 340,
-      stops: ['수내', '판교', '양재', '신사'],
-      stopCount: 9,
-    ),
-  ]),
-  const BusRoute(no: '3401', kind: '광역', durationMin: 38, dirs: [
-    RouteDir(
-      name: '강남역 방면',
-      from: '장지',
-      to: '강남역',
-      bearing: 290,
-      stops: ['장지', '수서', '대치', '강남역'],
-      stopCount: 12,
-    ),
-    RouteDir(
-      name: '복정 방면',
-      from: '강남역',
-      to: '복정',
-      bearing: 110,
-      stops: ['강남역', '대치', '수서', '복정'],
-      stopCount: 12,
-    ),
-  ]),
-  const BusRoute(no: '1550', kind: '광역', durationMin: 47, dirs: [
-    RouteDir(
-      name: '사당 방면',
-      from: '수원역',
-      to: '사당역',
-      bearing: 35,
-      stops: ['수원역', '과천', '남태령', '사당'],
-      stopCount: 8,
-    ),
-  ]),
-  const BusRoute(no: '140', kind: '간선', durationMin: 44, dirs: [
-    RouteDir(
-      name: '도봉 방면',
-      from: 'AT센터',
-      to: '수유',
-      bearing: 5,
-      stops: ['AT센터', '신사', '명동', '수유'],
-      stopCount: 24,
-    ),
-    RouteDir(
-      name: 'AT센터 방면',
-      from: '수유',
-      to: 'AT센터',
-      bearing: 185,
-      stops: ['수유', '명동', '신사', 'AT센터'],
-      stopCount: 24,
-    ),
-  ]),
-  const BusRoute(no: '472', kind: '간선', durationMin: 36, dirs: [
-    RouteDir(
-      name: '신림 방면',
-      from: '송파',
-      to: '신림',
-      bearing: 265,
-      stops: ['송파', '잠실', '사당', '신림'],
-      stopCount: 19,
-    ),
-  ]),
-];
-
-BusRoute findRoute(String no) => kSeedRoutes.firstWhere(
-      (r) => r.no == no,
-      orElse: () => kSeedRoutes.first,
-    );

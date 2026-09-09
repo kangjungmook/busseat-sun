@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  var map = null;
+  var markers = [];
+
+  // Flutter가 loadFlutterAsset으로 이 페이지를 연 뒤 appKey를 넘겨 호출한다.
+  // (SDK 키를 이 정적 파일에 박아두지 않기 위해 런타임에 스크립트를 붙인다.)
+  function initMap(appKey, lat, lng, level) {
+    var script = document.createElement('script');
+    script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=' + appKey + '&autoload=false';
+    script.onload = function () {
+      kakao.maps.load(function () {
+        var container = document.getElementById('map');
+        var options = {
+          center: new kakao.maps.LatLng(lat, lng),
+          level: level || 4
+        };
+        map = new kakao.maps.Map(container, options);
+      });
+    };
+    document.head.appendChild(script);
+  }
+
+  // 노선 위 정류장 마커 갱신. stops: [{lat, lng, name}]
+  function setStops(stops) {
+    if (!map) return;
+    markers.forEach(function (m) { m.setMap(null); });
+    markers = [];
+    stops.forEach(function (s) {
+      var marker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(s.lat, s.lng),
+        map: map
+      });
+      markers.push(marker);
+    });
+  }
+</script>
+</body>
+</html>

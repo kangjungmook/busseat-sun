@@ -26,6 +26,7 @@ class ResultScreen extends StatelessWidget {
       dirIndex: state.dirIndex,
       minutes: state.minutes,
       mode: state.effectiveMode,
+      sun: state.sun,
       board: state.boardIndex,
       alight: state.alightIndex,
     );
@@ -113,7 +114,11 @@ class ResultScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '기상청 일사 ${comp.timeLabel} 기준 · 건물 그림자 반영 · ${comp.spanLabel} 구간',
+                    // 예전 문구는 '기상청 일사 … 기준 · 건물 그림자 반영'이었다.
+                    // 둘 다 사실이 아니다 — 기상청 API를 부르지 않고, 건물 높이
+                    // 데이터도 없다. 앱의 결론이 나오는 화면에서 근거를 지어내면
+                    // 사용자가 이 답을 실제보다 더 믿게 된다.
+                    '태양 위치 ${comp.timeLabel} 기준 · 직사광 기준(건물 그림자 미반영) · ${comp.spanLabel} 구간',
                     style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 10.5, color: palette.textMuted),
                   ),
                 ],
@@ -251,9 +256,23 @@ class _DetailCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 5),
-          SegmentBar(segments: comp.segments, palette: palette),
-          const SizedBox(height: 10),
-          SegmentLegend(palette: palette),
+          // 정류장 좌표가 없는 노선은 구간 분포를 계산할 수 없다 — 가짜 막대를
+          // 그리느니 그렇다고 말한다.
+          if (comp.hasSegmentData) ...[
+            SegmentBar(segments: comp.segments, meters: comp.segmentMeters, palette: palette),
+            const SizedBox(height: 10),
+            SegmentLegend(palette: palette),
+          ] else
+            Container(
+              height: 36,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(color: palette.subtle, borderRadius: BorderRadius.circular(11)),
+              child: Text(
+                '이 노선은 정류장 좌표가 없어 구간별로 나눌 수 없어요',
+                style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, color: palette.textMuted),
+              ),
+            ),
           const SizedBox(height: 16),
           Row(
             children: [
