@@ -146,11 +146,14 @@ class SettingsScreen extends StatelessWidget {
               decoration: BoxDecoration(color: palette.surfaceColor, borderRadius: BorderRadius.circular(18)),
               child: Column(
                 children: [
-                  _SourceRow(k: '기상청 일사량', v: '단기예보 API', palette: palette),
+                  // 실제로 쓰는 것만 적는다. 예전에는 기상청 단기예보,
+                  // 서울 TOPIS, 국토지리정보원 수치표고가 적혀 있었는데
+                  // 셋 다 부르지 않는다 (TOPIS는 서울 지원 때 붙일 예정).
+                  _SourceRow(k: '노선·정류장', v: '국토교통부 TAGO', palette: palette),
                   Container(height: 1, color: palette.line),
-                  _SourceRow(k: '노선/정류장', v: '서울 TOPIS', palette: palette),
+                  _SourceRow(k: '위치·지명', v: '카카오 로컬', palette: palette),
                   Container(height: 1, color: palette.line),
-                  _SourceRow(k: '건물 그림자', v: '국토지리정보원 수치표고', palette: palette),
+                  _SourceRow(k: '태양 위치', v: 'NOAA 계산식 (앱 내 계산)', palette: palette),
                 ],
               ),
             ),
