@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>햇살좌석 개인정보처리방침</title>
+<meta name="description" content="햇살좌석 앱의 개인정보처리방침. 별도 서버가 없어 이용자 정보를 수집·보관하지 않습니다.">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  :root {
+    color-scheme: light dark;
+
+    /* 앱과 같은 계열의 틴티드 뉴트럴. 순수 흑백은 쓰지 않는다. */
+    --bg:        oklch(98.4% 0.003 85);
+    --surface:   oklch(100% 0 0);
+    --text:      oklch(24% 0.012 75);
+    --text-muted:oklch(50% 0.012 75);
+    --line:      oklch(91% 0.005 85);
+    --accent:    oklch(52% 0.16 268);   /* 앱의 그늘 모드 primary 계열 */
+    --accent-bg: oklch(96.5% 0.018 268);
+
+    /* 모듈러 스케일 1.25 */
+    --step--1: clamp(0.82rem, 0.79rem + 0.14vw, 0.9rem);
+    --step-0:  clamp(1rem, 0.96rem + 0.18vw, 1.09rem);
+    --step-1:  clamp(1.2rem, 1.12rem + 0.36vw, 1.42rem);
+    --step-2:  clamp(1.5rem, 1.34rem + 0.71vw, 1.94rem);
+    --step-3:  clamp(1.87rem, 1.58rem + 1.28vw, 2.62rem);
+
+    /* 8px 기반 간격 */
+    --s1: 8px;  --s2: 16px; --s3: 24px;
+    --s4: 32px; --s5: 48px; --s6: 64px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      /* 기계적 반전이 아니라 눈이 편한 짙은 회색 계열로 다시 잡는다. */
+      --bg:        oklch(21% 0.008 75);
+      --surface:   oklch(25% 0.009 75);
+      --text:      oklch(93% 0.006 85);
+      --text-muted:oklch(69% 0.009 85);
+      --line:      oklch(30% 0.008 75);
+      --accent:    oklch(76% 0.12 268);
+      --accent-bg: oklch(27% 0.03 268);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: var(--s5) var(--s3) var(--s6);
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+                 'Malgun Gothic', system-ui, sans-serif;
+    font-size: var(--step-0);
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  main { max-width: 66ch; margin: 0 auto; }
+
+  header { margin-bottom: var(--s5); }
+
+  h1 {
+    font-size: var(--step-3);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin: 0 0 var(--s1);
+    font-weight: 800;
+  }
+
+  .lede {
+    font-size: var(--step-1);
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin: 0 0 var(--s2);
+    letter-spacing: -0.01em;
+  }
+
+  .meta {
+    font-size: var(--step--1);
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  h2 {
+    font-size: var(--step-2);
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+    margin: var(--s6) 0 var(--s2);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--line);
+  }
+
+  h3 {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    font-weight: 700;
+    margin: var(--s4) 0 var(--s1);
+  }
+
+  p { margin: 0 0 var(--s2); }
+
+  ul { margin: 0 0 var(--s2); padding-left: 1.3em; }
+  li { margin-bottom: var(--s1); }
+  li:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 700; }
+
+  /* 핵심 문장 하나만 강조. 카드를 겹치지 않는다. */
+  .callout {
+    background: var(--accent-bg);
+    border-left: 3px solid var(--accent);
+    padding: var(--s2) var(--s3);
+    margin: 0 0 var(--s3);
+    border-radius: 0 8px 8px 0;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .table-wrap { overflow-x: auto; margin: 0 0 var(--s3); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+    line-height: 1.6;
+  }
+
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: var(--s2) var(--s2) var(--s2) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    font-weight: 700;
+    color: var(--text-muted);
+    font-size: var(--step--1);
+    border-bottom-width: 2px;
+  }
+
+  td:first-child { font-weight: 600; white-space: nowrap; padding-right: var(--s3); }
+
+  a {
+    color: var(--accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  /* 터치 영역 44px 확보 */
+  a.tap {
+    display: inline-block;
+    min-height: 44px;
+    line-height: 44px;
+    padding: 0 2px;
+  }
+  a:hover { text-decoration-thickness: 2px; }
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* 좁은 화면에서는 표를 가로로 밀지 않고 항목마다 세로로 푼다.
+     고지문을 읽는 데 가로 스크롤을 요구하면 안 읽는다. */
+  @media (max-width: 34rem) {
+    table, tbody, tr, td { display: block; width: 100%; }
+    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+    tr {
+      border-bottom: 1px solid var(--line);
+      padding: var(--s2) 0;
+    }
+    tr:last-child { border-bottom: none; }
+
+    td {
+      border: none;
+      padding: 0 0 var(--s1);
+      white-space: normal;
+    }
+    td:last-child { padding-bottom: 0; }
+
+    td:first-child {
+      font-size: var(--step-0);
+      font-weight: 700;
+      padding-right: 0;
+      margin-bottom: var(--s1);
+    }
+
+    /* 나머지 칸은 무엇에 대한 값인지 이름을 붙여준다 */
+    td:not(:first-child)::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.78em;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+    }
+  }
+
+  footer {
+    margin-top: var(--s6);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--line);
+    font-size: var(--step--1);
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>개인정보처리방침</h1>
+  <p class="lede">햇살좌석(SunSeat)이 이용자의 정보를 어떻게 다루는지 적어둡니다.</p>
+  <p class="meta">시행일 2026년 9월 9일 · 최초 버전</p>
+</header>
+
+<div class="callout">
+  <p><strong>햇살좌석은 자체 서버를 운영하지 않습니다.</strong> 이용자의 위치,
+  로그인 정보, 이용 기록을 개발자가 수집하거나 보관하는 곳이 없습니다. 앱이 만드는
+  데이터는 기기 안에만 남고, 외부로 나가는 것은 아래에 적은 버스 노선 조회와
+  좌표 변환 요청뿐입니다.</p>
+</div>
+
+<h2>1. 앱이 다루는 정보</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>항목</th><th>쓰는 이유</th><th>어디에 남는가</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>위치정보<br>(GPS 좌표)</td>
+      <td data-label="쓰는 이유">가까운 정류장 찾기, 검색할 지역 좁히기, 그 위치의 태양 고도·방위 계산</td>
+      <td data-label="어디에 남는가"><strong>저장하지 않음.</strong> 계산에 쓰고 버립니다</td>
+    </tr>
+    <tr>
+      <td>카메라</td>
+      <td data-label="쓰는 이유">AR 화면에서 카메라 화면 위에 태양 방향을 겹쳐 보여주기</td>
+      <td data-label="어디에 남는가"><strong>저장·전송하지 않음.</strong> 화면에 보여줄 뿐 촬영하지 않습니다</td>
+    </tr>
+    <tr>
+      <td>기기 방향<br>(나침반·모션)</td>
+      <td data-label="쓰는 이유">AR 화면에서 기기가 향한 방향에 맞춰 태양 위치 표시</td>
+      <td data-label="어디에 남는가">저장하지 않음</td>
+    </tr>
+    <tr>
+      <td>카카오 계정<br>(회원번호·닉네임)</td>
+      <td data-label="쓰는 이유">로그인한 이용자 표시. 로그인은 선택이며 게스트로도 모든 기능을 씁니다</td>
+      <td data-label="어디에 남는가">앱 실행 중 메모리에만. 앱을 종료하면 사라집니다</td>
+    </tr>
+    <tr>
+      <td>즐겨찾기·최근 검색<br>노선</td>
+      <td data-label="쓰는 이유">자주 타는 노선을 다시 검색하지 않도록</td>
+      <td data-label="어디에 남는가"><strong>기기 안에만.</strong> 앱을 삭제하면 함께 지워집니다</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>광고 식별자를 수집하지 않으며, 분석·광고·크래시 리포팅 SDK를 일절 넣지
+않았습니다. 이용자를 식별하거나 추적하는 코드가 없습니다.</p>
+
+<h2>2. 위치정보에 대하여</h2>
+
+<p>위치정보는 이 앱의 핵심입니다. 태양의 방위와 고도는 <strong>위도·경도에 따라
+달라지고</strong>, 어느 쪽 창가가 그늘인지는 전적으로 그 값에서 나오기 때문입니다.</p>
+
+<ul>
+  <li>위치 권한은 <strong>앱 사용 중에만</strong> 요청합니다. 백그라운드에서 위치를
+  받지 않습니다.</li>
+  <li>권한을 거부해도 앱은 동작합니다. 다만 가까운 정류장을 찾지 못하고, 태양 계산에
+  전국 중심 좌표를 대신 씁니다.</li>
+  <li>좌표는 <strong>기기에 저장되지 않습니다.</strong> 계산과 조회에 쓰인 뒤
+  사라지며, 이동 경로를 기록하지 않습니다.</li>
+  <li>권한은 기기 설정에서 언제든 철회할 수 있습니다.</li>
+</ul>
+
+<h2>3. 외부로 나가는 요청</h2>
+
+<p>앱이 통신하는 곳은 아래 세 곳뿐이며, 모두 기능 수행에 필요한 최소한입니다.
+개발자에게 전송되는 데이터는 없습니다.</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>받는 곳</th><th>보내는 것</th><th>받는 이유</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>국토교통부<br>(공공데이터포털)</td>
+      <td data-label="보내는 것">버스 노선번호, 도시코드, 현재 좌표</td>
+      <td data-label="받는 이유">노선의 경유 정류장과 좌표, 근처 정류소 조회</td>
+    </tr>
+    <tr>
+      <td>카카오</td>
+      <td data-label="보내는 것">현재 좌표</td>
+      <td data-label="받는 이유">좌표를 행정구역 이름으로 바꿔 검색할 지역을 좁히고 화면에 지명 표시</td>
+    </tr>
+    <tr>
+      <td>카카오<br>(로그인 이용 시)</td>
+      <td data-label="보내는 것">로그인 요청</td>
+      <td data-label="받는 이유">카카오 계정 인증. 로그인하지 않으면 통신하지 않습니다</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>각 사업자의 처리 방침은 해당 사업자가 정합니다. 카카오는
+<a href="https://www.kakao.com/policy/privacy" target="_blank" rel="noopener">카카오
+개인정보처리방침</a>을, 공공데이터포털은 해당 기관의 방침을 따릅니다.</p>
+
+<h2>4. 보관과 파기</h2>
+
+<p>개발자가 보관하는 이용자 정보가 없으므로 별도의 보관 기간이나 파기 절차가
+없습니다. 기기에 남는 즐겨찾기와 최근 검색 노선은 다음 방법으로 지울 수 있습니다.</p>
+
+<ul>
+  <li>앱 삭제 — 앱이 만든 데이터가 함께 지워집니다</li>
+  <li>기기 설정에서 앱 저장공간 지우기</li>
+  <li>앱 안에서 즐겨찾기를 개별 삭제</li>
+</ul>
+
+<h2>5. 이용자의 권리</h2>
+
+<p>개인정보 보호법에 따라 열람·정정·삭제·처리정지를 요구할 수 있습니다. 다만 이
+앱은 이용자 정보를 서버에 보관하지 않으므로, 실질적인 삭제는 위 4항의 방법으로
+이용자가 직접, 즉시 수행할 수 있습니다. 카카오 계정 연결을 끊으려면 앱 안에서
+로그아웃하거나 카카오 계정 설정에서 연결된 서비스를 해제하면 됩니다.</p>
+
+<h2>6. 만 14세 미만 아동</h2>
+
+<p>이 앱은 만 14세 미만 아동을 대상으로 하지 않으며, 아동의 개인정보를 알면서
+수집하지 않습니다.</p>
+
+<h2>7. 문의</h2>
+
+<p>개인정보 처리에 관한 문의는 아래로 보내주시면 됩니다.</p>
+
+<!--
+  ⚠️ 배포 전에 반드시 실제 이메일로 바꾸세요.
+  구글 플레이는 개인정보처리방침에 연락 가능한 수단이 있어야 심사를 통과시킵니다.
+  이메일은 공개 페이지에 그대로 노출되므로, 개인 주소를 쓸지 별도 주소를 만들지
+  정하신 뒤 넣어 주세요.
+-->
+<p><a class="tap" href="mailto:PUT-YOUR-EMAIL-HERE">PUT-YOUR-EMAIL-HERE</a></p>
+
+<h2>8. 변경</h2>
+
+<p>이 방침이 바뀌면 이 페이지에서 개정 내용과 시행일을 알립니다. 이용자에게
+불리한 변경은 시행 7일 전부터 안내합니다.</p>
+
+<footer>
+  <p>햇살좌석 (SunSeat) · 시행일 2026년 9월 9일<br>
+  <a href="./">앱 화면 미리보기로 돌아가기</a></p>
+</footer>
+
+</main>
+</body>
+</html>
