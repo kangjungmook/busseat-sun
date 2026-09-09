@@ -9,7 +9,7 @@ import 'tago_bus_service.dart' show TagoApiException, decodeTagoBody;
 
 /// 국토교통부 TAGO 정류소정보조회 서비스(BusSttnInfoInqireService) 클라이언트.
 ///
-/// ⚠️ **상태: 2026-09-09에 오퍼레이션 이름 오타를 고쳤다. 아직 실호출 미검증.**
+/// ✅ **상태: 2026-09-09 실호출로 검증됨** (오퍼레이션 이름 오타를 고친 뒤).
 ///
 /// 2026-09-07에 `NO_OPENAPI_SERVICE_ERROR`(returnReasonCode `12`)가 와서
 /// "정류소정보 서비스를 별도로 활용신청하지 않아서"라고 적어뒀었는데, **틀린
@@ -24,20 +24,29 @@ import 'tago_bus_service.dart' show TagoApiException, decodeTagoBody;
 /// 500m)에 있는 정류장을 검색한다"이다. 즉 500m 밖에서는 정상 응답에
 /// `totalCount: 0`이 온다 — 오류가 아니다.
 ///
-/// 이 오퍼레이션의 응답 항목은 `gpslati / gpslong / nodeid / nodenm / citycode`
-/// 다섯 개다. 다른 오퍼레이션과 달리 **`nodeno`(정류소번호)가 없다** —
-/// [TagoNearbyStation]은 이미 옵션으로 두고 있어서 그대로 동작한다.
+/// 명세의 응답 항목표는 `gpslati / gpslong / nodeid / nodenm / citycode`
+/// 다섯 개만 적어뒀지만, 실제로는 `nodeno`도 온다 (아래 응답 참고).
 ///
-/// 실호출로 확인하려면 아래를 브라우저에 붙여넣어 `resultCode: "00"`을 본다
-/// (serviceKey는 **인코딩된** 값):
+/// 검증에 쓴 요청(gpsLati=36.3&gpsLong=127.3&numOfRows=5)과 실제 응답:
 ///
+/// ```json
+/// {"response":{"header":{"resultCode":"00","resultMsg":"NORMAL SERVICE."},
+///  "body":{"items":{"item":[
+///    {"citycode":25,"gpslati":36.298546,"gpslong":127.29593,
+///     "nodeid":"DJB8002012","nodenm":"성북3통굿개말길","nodeno":40600}, …]},
+///  "numOfRows":5,"pageNo":1,"totalCount":2}}}
 /// ```
-/// https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtSttnList
-///   ?serviceKey=<발급받은 키>&_type=json&gpsLati=36.3&gpsLong=127.3&numOfRows=5&pageNo=1
-/// ```
 ///
-/// (명세의 예제 좌표 36.3/127.3은 대전 근처이고, 예제 응답이 '성북3통' 정류소
-/// 5건이므로 이 좌표로는 결과가 나와야 정상이다.)
+/// 여기서 명세와 **다른 점 두 가지**가 드러났다:
+/// - `citycode`와 `nodeno`가 **따옴표 없는 JSON 숫자**로 온다. 명세 예제가
+///   XML이라 전부 텍스트로 보이지만 `_type=json`에서는 아니다. `_pick`이
+///   `toString()`으로 받아내서 통과한다 — 그걸 `as String?` 캐스트로
+///   "정리"하면 전부 null이 되고 캡션이 조용히 사라진다.
+/// - 명세 응답표에 없는 **`nodeno`가 실제로 온다.**
+///
+/// 둘 다 `test/tago_station_parse_test.dart`에 실제 응답 원문으로 고정해 뒀다.
+/// 다시 호출해 볼 때는 serviceKey에 **인코딩된** 값을 쓴다:
+/// `…/getCrdntPrxmtSttnList?serviceKey=<키>&_type=json&gpsLati=36.3&gpsLong=127.3&numOfRows=5&pageNo=1`
 ///
 /// 실패하면 홈 화면의 "가까운 정류장"은 [AppState] 쪽에서 **캐시된 노선의
 /// 정류장 좌표**로 대신 계산한다 — 그쪽은 이미 검증된 버스노선정보 API

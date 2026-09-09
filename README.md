@@ -214,7 +214,7 @@ TAGO에 서울이 없는 것이 확정됐으므로(위 참고), 서울을 지원
 지점에 넣으면 됩니다. `BusRoute`/`RouteDir`은 API 중립적인 모양이라
 (정류장 이름 + 좌표 + 진행 방위) 좌석 계산 로직은 그대로 재사용됩니다.
 
-### 근접 정류장 — 두 경로로 구현, 신뢰도가 다릅니다
+### 근접 정류장 — 두 경로로 구현, 둘 다 검증됨
 
 **1) 방면 안의 가장 가까운 정류장 — ✅ 검증된 데이터로 계산.**
 `구간 지정` 화면의 "가까운 정류장으로" 버튼과 정류장 목록의 거리 캡션은 이제
@@ -224,7 +224,7 @@ TAGO에 서울이 없는 것이 확정됐으므로(위 참고), 서울을 지원
 (`AppState.nearestStop`). 좌표가 없는 노선(시드 데이터)이거나 위치를 못 얻으면
 예전처럼 "두 번째 정류장"으로 조용히 대체합니다.
 
-**2) 홈 화면 "가까운 정류장" 캡션 — 오퍼레이션 이름 오타를 고쳤습니다 (2026-09-09), 실호출 미검증.**
+**2) 홈 화면 "가까운 정류장" 캡션 — ✅ 2026-09-09 검증 완료 (오퍼레이션 이름 오타를 고친 뒤).**
 노선을 고르기 전, 홈 화면 상단 캡션(현재 위치 주변 정류소)은 두 단계로 값을 구합니다
 (`AppState._loadNearestStation`):
 
@@ -248,21 +248,30 @@ TAGO에 서울이 없는 것이 확정됐으므로(위 참고), 서울을 지원
 
 **반경 500m 제한**: 명세상 이 오퍼레이션은 "GPS좌표를 기반으로 근처(반경 500m)에
 있는 정류장을 검색"합니다. 500m 밖에서는 오류가 아니라 정상 응답에
-`totalCount: 0`이 옵니다. 응답 항목은 `gpslati / gpslong / nodeid / nodenm /
-citycode` 다섯 개이고, 다른 오퍼레이션과 달리 **`nodeno`가 없습니다** —
-`TagoNearbyStation`은 이미 옵션으로 두고 있어 그대로 동작합니다.
+`totalCount: 0`이 옵니다. 홈 캡션이 자주 비는 것이 정상이라는 뜻입니다.
 
-아래 URL을 브라우저에 붙여넣어(**인코딩된** 서비스키) `resultCode: "00"`이 오는지
-확인해 주세요. 이 샌드박스에서는 `apis.data.go.kr`가 프록시에 막혀 있어
-직접 호출로 확인하지 못했습니다:
+고친 뒤 **2026-09-09 실호출로 검증했습니다**(`gpsLati=36.3&gpsLong=127.3`,
+명세 예제 좌표):
 
+```json
+{"response":{"header":{"resultCode":"00","resultMsg":"NORMAL SERVICE."},
+ "body":{"items":{"item":[
+   {"citycode":25,"gpslati":36.298546,"gpslong":127.29593,
+    "nodeid":"DJB8002012","nodenm":"성북3통굿개말길","nodeno":40600}, …]},
+ "numOfRows":5,"pageNo":1,"totalCount":2}}}
 ```
-https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtSttnList?serviceKey=<발급받은 키>&_type=json&gpsLati=36.3&gpsLong=127.3&numOfRows=5&pageNo=1
-```
 
-(명세의 예제 좌표입니다 — 대전 근처이고 예제 응답이 '성북3통' 등 5건이라,
-이 좌표라면 결과가 나와야 정상입니다.) 응답 필드명이 다르면
-`TagoNearbyStation.fromJson`(`lib/models/tago.dart`)의 후보 키 목록만 고치면 됩니다.
+여기서 **명세와 다른 점 두 가지**가 나왔습니다:
+
+- `citycode`와 `nodeno`가 **따옴표 없는 JSON 숫자**로 옵니다. 명세 예제가 XML이라
+  전부 텍스트로 보이지만 `_type=json`에서는 아닙니다. `_pick`이 `toString()`으로
+  받아내서 통과하는데, 이걸 `as String?` 캐스트로 "정리"하면 전부 null이 되고
+  캡션이 조용히 사라집니다.
+- 명세 응답표에 없는 **`nodeno`가 실제로 옵니다.**
+
+둘 다 `test/tago_station_parse_test.dart`에 **실제 응답 원문 그대로** 고정해
+뒀습니다. 요청 URL 철자(오퍼레이션 이름, `gpsLati`/`gpsLong`의 대문자 L)는
+`test/tago_station_url_test.dart`가 명세와 대조합니다.
 
 **같은 서비스의 나머지 오퍼레이션** (지금은 안 쓰지만 활용가이드로 확인해 둔 것):
 `getSttnNoList`(정류소명·번호로 검색, `cityCode` 필수),
