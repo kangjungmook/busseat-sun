@@ -81,7 +81,7 @@ class TagoRoute {
   }
 }
 
-/// [좌표기반근접정류소목록 조회] getCrdntPrxmtStaionList 결과 1건
+/// [좌표기반근접정류소목록 조회] getCrdntPrxmtSttnList 결과 1건
 /// (BusSttnInfoInqireService). ⚠️ 이 오퍼레이션은 BusRouteInfoInqireService의
 /// getRouteNoList처럼 공식 문서로 실제 호출 확인을 못 했다 — 공개적으로 널리
 /// 쓰이는 필드명(정류소정보조회 서비스 문서 기준)을 그대로 반영했을 뿐이니,

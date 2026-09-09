@@ -224,34 +224,51 @@ TAGO에 서울이 없는 것이 확정됐으므로(위 참고), 서울을 지원
 (`AppState.nearestStop`). 좌표가 없는 노선(시드 데이터)이거나 위치를 못 얻으면
 예전처럼 "두 번째 정류장"으로 조용히 대체합니다.
 
-**2) 홈 화면 "가까운 정류장" 캡션 — ⚠️ 1순위 API가 현재 막혀 있어 대체 경로로 동작.**
+**2) 홈 화면 "가까운 정류장" 캡션 — 오퍼레이션 이름 오타를 고쳤습니다 (2026-09-09), 실호출 미검증.**
 노선을 고르기 전, 홈 화면 상단 캡션(현재 위치 주변 정류소)은 두 단계로 값을 구합니다
 (`AppState._loadNearestStation`):
 
 1. **TAGO 좌표기반 근접 정류소 조회** — `lib/services/tago_station_service.dart`.
    TAGO 정류소정보조회 서비스(`BusSttnInfoInqireService`)의
-   `getCrdntPrxmtStaionList`. 전국 아무 정류소나 찾을 수 있는 제대로 된 방법이지만,
-   **2026-09-07 실제 호출 결과 이 프로젝트 키로는 동작하지 않습니다**:
-   `NO_OPENAPI_SERVICE_ERROR` / `returnReasonCode: "12"`.
-   공공데이터포털에서 신청한 것이 "국토교통부(TAGO)_**버스노선정보**"뿐이라,
-   **정류소정보 서비스는 별도 활용신청이 필요**하기 때문으로 보입니다.
-   (같은 키로 `getCtyCodeList`는 `resultCode: "00"` 정상 → 키 자체는 멀쩡합니다.)
+   **`getCrdntPrxmtSttnList`**. 전국 아무 정류소나 찾을 수 있는 제대로 된 방법입니다.
 2. **대체: 캐시된 노선의 정류장 좌표** — 1번이 실패하면 `routeCache`에 들어있는
    노선들(즐겨찾기·최근 검색)의 정류장 좌표 중 현재 위치에서 가장 가까운 것을
    하버사인으로 고릅니다. 이미 검증된 버스노선정보 API 데이터라 추가 신청이
    필요 없습니다. 대신 **캐시에 있는 노선 위의 정류장만 후보**이고, 2km보다 멀면
    (다른 도시 노선만 캐시된 경우 등) 캡션을 비웁니다.
 
-정류소정보 서비스를 나중에 활용신청하면 1번이 자동으로 살아납니다. 신청 후
+**앞서 적었던 진단은 틀렸습니다.** 2026-09-07에 1번이
+`NO_OPENAPI_SERVICE_ERROR`(`returnReasonCode: "12"`)를 돌려주길래 "정류소정보
+서비스를 별도로 활용신청하지 않아서"라고 여기에 적어뒀는데, 2026-09-09에 공식
+활용가이드(v1.0)를 받아 대조해 보니 **오퍼레이션 이름을 틀리게 부르고 있었습니다** —
+`getCrdntPrxmtStaionList`(잘못) vs `getCrdntPrxmtSttnList`(명세). 코드 12의 정의도
+"해당 오픈API서비스가 없거나 폐기됨"이라 그쪽에 맞습니다. 활용신청이 안 된
+경우라면 `SERVICE_ACCESS_DENIED_ERROR`(20)나
+`SERVICE_KEY_IS_NOT_REGISTERED_ERROR`(30)가 왔을 것입니다.
+
+**반경 500m 제한**: 명세상 이 오퍼레이션은 "GPS좌표를 기반으로 근처(반경 500m)에
+있는 정류장을 검색"합니다. 500m 밖에서는 오류가 아니라 정상 응답에
+`totalCount: 0`이 옵니다. 응답 항목은 `gpslati / gpslong / nodeid / nodenm /
+citycode` 다섯 개이고, 다른 오퍼레이션과 달리 **`nodeno`가 없습니다** —
+`TagoNearbyStation`은 이미 옵션으로 두고 있어 그대로 동작합니다.
+
 아래 URL을 브라우저에 붙여넣어(**인코딩된** 서비스키) `resultCode: "00"`이 오는지
-먼저 확인하세요:
+확인해 주세요. 이 샌드박스에서는 `apis.data.go.kr`가 프록시에 막혀 있어
+직접 호출로 확인하지 못했습니다:
 
 ```
-https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtStaionList?serviceKey=<발급받은 키>&_type=json&gpsLati=37.498&gpsLong=127.028&numOfRows=5&pageNo=1
+https://apis.data.go.kr/1613000/BusSttnInfoInqireService/getCrdntPrxmtSttnList?serviceKey=<발급받은 키>&_type=json&gpsLati=36.3&gpsLong=127.3&numOfRows=5&pageNo=1
 ```
 
-(좌표는 강남역 근처 예시입니다.) 응답 필드명이 다르면
+(명세의 예제 좌표입니다 — 대전 근처이고 예제 응답이 '성북3통' 등 5건이라,
+이 좌표라면 결과가 나와야 정상입니다.) 응답 필드명이 다르면
 `TagoNearbyStation.fromJson`(`lib/models/tago.dart`)의 후보 키 목록만 고치면 됩니다.
+
+**같은 서비스의 나머지 오퍼레이션** (지금은 안 쓰지만 활용가이드로 확인해 둔 것):
+`getSttnNoList`(정류소명·번호로 검색, `cityCode` 필수),
+`getCtyCodeList`(도시코드 — 노선 서비스 쪽과 같은 이름),
+`getSttnThrghRouteList`(정류소별 경유노선, `cityCode` + `nodeid` 필수).
+마지막 것은 "이 정류장 지나는 노선" 기능을 붙일 때 쓸 수 있습니다.
 
 ### 응답 인코딩 — 반드시 `bodyBytes`를 UTF-8로 직접 디코딩
 TAGO는 Content-Type에 charset을 제대로 안 실어줍니다. 그런데 `http` 패키지의
