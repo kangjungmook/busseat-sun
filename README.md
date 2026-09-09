@@ -1,113 +1,432 @@
-# 햇살좌석 (SunSeat)
+content: # 햇살좌석 (SunSeat)
 
-버스 탑승 직전 3초 안에 "어느 쪽 창가에 앉아야 그늘/볕이 좋은지"만 알려주는 단일 목적 앱.
+버스 타기 직전 3초 안에 **"어느 쪽 창가에 앉아야 그늘/볕이 좋은지"** 하나만
+알려주는 앱. Flutter · Android/iOS.
 
-Claude Design 핸드오프(`FLUTTER_HANDOFF.md`, `햇살좌석 앱.dc.html`)를 기반으로 구현한 Flutter 앱입니다.
+- 화면 미리보기(웹): `https://kangjungmook.github.io/busseat-sun/`
+  — Pages를 `/docs` 폴더로 켜두면 열립니다. **API 키가 없는 빌드라 검색은
+  동작하지 않습니다** (아래 [웹 미리보기](#웹-미리보기) 참고).
+- 원안: Claude Design 핸드오프 (`FLUTTER_HANDOFF.md`, `햇살좌석 앱.dc.html`)
+
+---
+
+## 목차
+
+- [지금 상태](#지금-상태)
+- [남은 일](#남은-일)
+- [실행](#실행)
+- [데이터 소스](#데이터-소스)
+- [좌석 계산](#좌석-계산)
+- [구조](#구조)
+- [겪은 함정 모음](#겪은-함정-모음)
+
+---
+
+## 지금 상태
+
+| 영역 | 상태 | 근거 |
+|---|---|---|
+| 노선 검색 (TAGO) | 구현 완료, 브라우저로 응답 검증 | `getRouteNoList` / `getRouteAcctoThrghSttnList` 실호출 (2026-09-07~08) |
+| 정류장 좌표 | ✅ 실제 좌표 사용 | 같은 응답에 `gpslati`/`gpslong`/`nodeord` 확인 |
+| 좌표 → 행정구역 (카카오 로컬) | ✅ 실호출 검증 | 2026-09-08, 세종 집현동 |
+| 근접 정류소 (TAGO) | ✅ 실호출 검증 | 2026-09-09, `getCrdntPrxmtSttnList` |
+| 태양 위치·일출/일몰 | ✅ 실제 천문 계산 | `test/solar_test.dart` (천문학적 사실로 검증) |
+| 구간별 일사 | ✅ 실제 경로 좌표 기반 | `test/segments_test.dart` |
+| 카카오 로그인 | 키 배선 완료 | 실기기 미검증 |
+| 카카오맵 (지도 화면) | 코드 완료 | 실기기 미검증, 웹에서는 항상 플레이스홀더 |
+| **앱 안에서의 실제 API 호출** | ❌ **한 번도 확인 안 됨** | 전부 브라우저/curl로만 검증 |
+| 서울 | ❌ 미지원 | TAGO 미담당 — [서울](#서울--미착수) 참고 |
+| 릴리스 서명 | ❌ 디버그 키 | 이 상태로는 스토어 업로드 불가 |
+
+검사: `flutter analyze` 오류/경고 0, `flutter test` 50개 통과.
+이 저장소는 샌드박스에서 작업했고 **Android/iOS 네이티브 SDK가 없어
+`analyze`/`test`까지만 자동 검증됩니다.**
+
+---
+
+## 남은 일
+
+### 출시를 막고 있는 것
+
+| # | 항목 | 누가 |
+|---|---|---|
+| 1 | **릴리스가 디버그 키로 서명됨** (`android/app/build.gradle.kts`의 `signingConfig = signingConfigs.debug`) — 플레이 콘솔이 업로드를 거부합니다. 키스토어(`.jks`) 생성 + `android/key.properties`(gitignore) 배선 필요 | 키스토어 생성은 사람 |
+| 2 | **개인정보처리방침 URL** — 위치·카메라를 쓰므로 필수. 데이터 안전(Data safety) 섹션도 채워야 합니다 | — |
+| 3 | **카카오 REST 키가 앱에 박혀 배포됨** — 아래 참고 | 방향 결정 필요 |
+
+**3번 상세.** `KakaoLocalConfig.restApiKey`는 dart-define으로 APK에 들어갑니다.
+릴리스 APK는 디컴파일되므로 키가 추출돼 쿼터를 소진당할 수 있습니다. REST 키는
+원래 서버용이라 앱 서명이나 도메인으로 제한을 걸 수 없습니다. 선택지:
+
+1. 지도 WebView 안에서 JS SDK의 `kakao.maps.services.Geocoder`로 좌표→행정구역을
+   받는다 — **JS 키는 도메인 제한이 걸리므로 안전**하고, WebView는 이미 있습니다.
+2. 프록시 서버를 하나 둔다 — 가장 안전하지만 서버 운영이 생깁니다.
+3. 감수한다 — 실제로 많이들 그러지만 쿼터 소진 위험은 남습니다.
+
+### 검증이 필요한 것
+
+- **실기기/에뮬레이터에서 `flutter run`.** 남은 것 중 리스크가 가장 큽니다.
+  TAGO·카카오 로그인·지도 WebView가 앱 안에서 실제로 도는 걸 아직 아무도 못 봤습니다.
+  웹 빌드는 키 없이 컴파일하므로 이 검증을 대신할 수 없습니다.
+- 카카오 로그인 실기기 왕복 (네이티브 앱 키 · 리다이렉트).
+- 카카오맵 WebView 마커 타이밍 (SDK 로드 전에 `setStops`가 불릴 수 있어 500ms 뒤
+  한 번 더 부르도록 방어해 뒀지만, 실기기에서 확인 필요).
+
+### 정확도로 남은 근사
+
+- **소요시간(`durationMin`)이 정류장 수 기반 추정치**입니다. TAGO가 소요시간을
+  안 줍니다. 이제 정류장 좌표가 있으니 **실제 거리 기반으로 바꿀 수 있습니다.**
+- **건물 그림자 데이터가 없습니다.** 여기서 말하는 '그늘'은 "태양이 반대쪽에 있어
+  그 창으로 직사광이 안 들어온다"는 뜻이지, 건물에 가려진다는 뜻이 아닙니다.
+- **버스 번호는 전국적으로 고유하지 않습니다.** 100번처럼 흔한 번호는 여러 도시에
+  동시에 있는데, `TagoRouteRepository.search`가 이들을 하나의 `BusRoute`로 합칩니다.
+  위치로 좁히면 대부분 한 도시만 걸려 드물지만, 도 전체·전국까지 넓어지면 무관한
+  노선의 방면이 섞여 보일 수 있습니다. (도시 단위로 고르게 하려면 방면 선택 UI를
+  바꿔야 합니다.)
+
+### 기능으로 남은 것
+
+- [서울(TOPIS) 지원](#서울--미착수) — 결정됐고 미착수.
+- CI 없음. `flutter analyze` + `flutter test`만 걸어도 회귀를 잡습니다.
+
+---
 
 ## 실행
 
-API 키(카카오, TAGO)를 쓰려면 먼저 로컬 시크릿 파일을 채운다 (전부 gitignored — 저장소엔 `.example` 템플릿만 있음):
+키는 전부 gitignored 로컬 파일로 주입합니다 (저장소엔 `.example` 템플릿만).
 
 ```bash
-cp secrets/dart_defines.example.json secrets/dart_defines.json          # 값 채우기
+cp secrets/dart_defines.example.json secrets/dart_defines.json           # 값 채우기
 cp android/app/secrets.properties.example android/app/secrets.properties # 값 채우기
-cp ios/Flutter/Secrets.xcconfig.example ios/Flutter/Secrets.xcconfig     # 값 채우기 (iOS 빌드 시에만 필요)
+cp ios/Flutter/Secrets.xcconfig.example ios/Flutter/Secrets.xcconfig     # iOS 빌드 시에만
 
 flutter pub get
 flutter run --dart-define-from-file=secrets/dart_defines.json
 ```
 
-키 없이 `flutter run`만 해도 앱은 뜨지만, 카카오 로그인은 게스트 모드로만 동작합니다.
+키 없이 실행해도 앱은 뜹니다. 카카오 로그인은 게스트 모드로만 되고, 노선 검색은
+비활성화되며 홈 상단에 그 이유가 표시됩니다.
 
-## 아직 채워야 하는 것
+### 카카오 키는 용도별로 세 개가 전부 다릅니다
 
-### 카카오 로그인 — ✅ 키 연결 완료
-네이티브 앱 키를 3군데(Dart dart-define / Android manifest / iOS Info.plist)에 자동으로
-흘려보내도록 연결했습니다. `secrets/` 아래 로컬 파일만 채우면 실제로 로그인이 동작합니다.
-(`android/app/secrets.properties`, `ios/Flutter/Secrets.xcconfig`, `secrets/dart_defines.json`)
+앱 → `플랫폼 키`에서 각각 확인:
 
-### 지도 SDK — WebView + JS SDK 뼈대 완성, 실제 지도 화면엔 아직 미연결
-`map` 화면(`lib/screens/map_screen.dart`)은 여전히 도로 그리드 + 건물 블록을 직접
-그린 플레이스홀더입니다. 실제 카카오맵을 붙이는 재사용 컴포넌트는 만들어뒀습니다:
+| dart-define | 카카오 콘솔 | 쓰는 곳 |
+|---|---|---|
+| `KAKAO_NATIVE_APP_KEY` | 네이티브 앱 키 | 카카오 로그인 (Android/iOS 네이티브 SDK) |
+| `KAKAO_JS_KEY` | JavaScript 키 | 지도 화면 WebView (카카오맵 JS SDK) |
+| `KAKAO_REST_API_KEY` | REST API 키 | 좌표 → 행정구역 (검색 범위 좁히기) |
 
-- `lib/widgets/kakao_map_view.dart` — `webview_flutter`로 `assets/map/kakao_map.html`
-  (카카오맵 JavaScript SDK)을 로드하는 위젯. `KakaoMapView(lat: ..., lng: ...)`로 바로 쓸 수 있음.
-- `lib/config/kakao_js_config.dart` — JS 키 설정 (다른 키들과 동일하게
-  `secrets/dart_defines.json`의 `KAKAO_JS_KEY`로 주입, JS 키는 **네이티브 앱 키와 다른 키**).
+### 카카오 콘솔에서 해야 할 것
 
-**아직 실제 `map` 화면에 연결하지 않은 이유**: 지금 `RouteDir`엔 정류장 위경도 좌표가
-없어서 (표시용 정류장 이름만 있음) 실제 지도 위에 정확한 경로를 그릴 수가 없습니다.
-좌표가 생기기 전까지 `KakaoMapView`를 끼워 넣으면 위치가 안 맞는 지도만 뜨게 됩니다.
-좌표는 TAGO API(정류소 조회)나 카카오 로컬 API로 채울 수 있는데, 둘 다 아직 실제
-엔드포인트를 검증 못 했습니다 — 진행하려면 알려주세요.
+2026-09 기준입니다. 콘솔이 개편돼서 예전 경로(`플랫폼 → Web → 사이트 도메인`)는
+없습니다.
 
-**당신이 해야 할 것 (JS 키 발급 시)**:
-1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
-2. 플랫폼 → Web → 사이트 도메인에 `https://appassets.androidplatform.net` 등록
-   (Android WebView가 앱 내 HTML을 서빙할 때 쓰는 가상 도메인)
-3. iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 이 세션에서 기기로 확인하지
-   못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
-4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
+1. **JavaScript 키 확인** — 앱 관리 → `앱` → `플랫폼 키` → `JavaScript 키` 섹션.
+2. **도메인 등록** — 같은 카드의 `JavaScript SDK 도메인`에 `https://localhost` 추가.
+   `KakaoJsConfig.sdkDomain` 기본값과 같아야 합니다. 다른 도메인을 쓰려면
+   `KAKAO_JS_DOMAIN`과 콘솔 등록값을 같이 바꾸세요.
+   ([왜 localhost인가](#왜-localhost인가))
+3. **카카오맵 활성화** — 내 애플리케이션 → `제품 설정` → `카카오맵` → 활성화 `ON`.
+   **도메인 등록만으로는 부족합니다.** 이 스위치 하나가 지도 화면(JS SDK)과
+   좌표→행정구역(로컬 API) **둘 다**를 막습니다.
+4. `secrets/dart_defines.json`의 `KAKAO_JS_KEY` 채우기.
 
-### 노선/정류장 데이터 — 실시간 TAGO 검색으로 교체 완료 (⚠️ 실기기 미검증)
-홈 화면 검색이 더 이상 6개 시드 데이터를 안 씁니다. 번호를 입력하고 검색을 누르면:
+> 무료 쿼터는 **개발자 계정 기준 첫 번째로 활성화한 앱에만** 제공됩니다. 다른 앱에서
+> 이미 카카오맵을 켠 적이 있다면 이 앱은 비즈월렛 연결(유료)이 필요할 수 있습니다.
+>
+> 위 경로/정책은 검색 결과로만 확인했고 공식 문서를 직접 열지 못했습니다
+> (샌드박스에서 `developers.kakao.com` 차단). 화면이 다르면 콘솔 공지를 따르세요.
 
-1. `TagoBusService.findRouteNationwide` — 도시코드 전체를 훑어 그 번호가 등록된
-   도시/routeId를 전부 찾고 (사람이 도시를 몰라도 됨)
-2. `TagoRouteRepository.search` — 찾은 routeId마다 `getRouteAcctoThrghSttnList`로
-   실제 정류장+좌표를 받아서, 상행/하행(`updowncd`)별로 `RouteDir`을 조립하고
-   (`RouteDir.bearing`도 이제 좌표 2개로 실제 계산 — `lib/logic/geo.dart`)
-3. 결과를 `RouteCache`(`shared_preferences`)에 저장 — 같은 노선을 또 검색하거나
-   앱을 다시 켰을 때 네트워크를 안 기다리게.
+### TAGO 서비스키는 "디코딩" 버전
 
-시드 데이터(`kSeedRoutes`)는 "가까운 정류장" 예시 칩과 오프라인 대체용으로만 남아있습니다.
+공공데이터포털은 같은 키를 Encoding/Decoding 두 형태로 보여줍니다.
 
-**아직 실기기에서 못 본 부분**: `getRouteNoList` 자체는 브라우저로 실제 성공을
-확인했지만, 여러 도시 순회(`findRouteNationwide`) → 정류소 조회 → 방향 분리 →
-결과 화면까지 이어지는 전체 흐름은 `flutter analyze`/`flutter test`로 타입/구조만
-검증했고 실제 기기에서 눌러본 적은 없습니다. 특히:
-- `updowncd`로 상행/하행을 정확히 나눌 수 있는지 (문서엔 옵션 필드라 안 올 수도 있음)
-- 소요시간(`durationMin`)은 TAGO가 안 줘서 정류장 수 기반 추정치입니다 — 실제 값 아님
-- 전국 도시(~200개) 순회라 첫 검색이 몇 초 걸릴 수 있습니다 (동시 8개씩 처리, 캐시되면 이후엔 즉시)
+- **앱에는 디코딩 버전** (`+`, `/`, `=`가 그대로인 쪽). `TagoBusService`가
+  `Uri.replace(queryParameters:)`로 요청을 만들면서 값을 다시 퍼센트 인코딩하기
+  때문에, 인코딩 버전을 넣으면 `%252B`처럼 이중 인코딩돼 인증에 실패합니다.
+- **브라우저 주소창 테스트에는 인코딩 버전** (`%2B`, `%2F`, `%3D`).
 
-### 지도 SDK — WebView + JS SDK 뼈대 완성, 실제 지도 화면엔 아직 미연결
-`map` 화면(`lib/screens/map_screen.dart`)은 여전히 도로 그리드 + 건물 블록을 직접
-그린 플레이스홀더입니다. 실제 카카오맵을 붙이는 재사용 컴포넌트는 만들어뒀습니다:
+### 웹 미리보기
 
-- `lib/widgets/kakao_map_view.dart` — `webview_flutter`로 `assets/map/kakao_map.html`
-  (카카오맵 JavaScript SDK)을 로드하는 위젯. `KakaoMapView(lat: ..., lng: ...)`로 바로 쓸 수 있음.
-- `lib/config/kakao_js_config.dart` — JS 키 설정 (다른 키들과 동일하게
-  `secrets/dart_defines.json`의 `KAKAO_JS_KEY`로 주입, JS 키는 **네이티브 앱 키와 다른 키**).
+```bash
+flutter run -d chrome
+# 또는 배포용:
+flutter build web --release --base-href /busseat-sun/
+```
 
-이제 `RouteDir`에 실제 정류장 좌표가 들어있으니(위 TAGO 연동 참고) `map` 화면에
-`KakaoMapView`를 실제로 붙이는 건 남은 작업입니다 — JS 키만 받으면 바로 진행 가능합니다.
+기기·에뮬레이터 없이 로그인 → 홈 → 방면 선택 → 결과 → 좌석지도 → 구간지정 →
+지도 흐름을 눈으로 볼 수 있게 넣어뒀습니다. **출시 대상이 아니라 화면 확인용입니다.**
 
-**당신이 해야 할 것 (JS 키 발급 시)**:
-1. 카카오 디벨로퍼스 → 내 애플리케이션 → 앱 키에서 **JavaScript 키** 발급 (네이티브 키와 별개)
-2. 플랫폼 → Web → 사이트 도메인에 `https://appassets.androidplatform.net` 등록
-   (Android WebView가 앱 내 HTML을 서빙할 때 쓰는 가상 도메인)
-3. iOS는 `loadFlutterAsset`이 실제로 어떤 오리진을 쓰는지 이 세션에서 기기로 확인하지
-   못했습니다 — iOS 빌드 시 등록 도메인을 다시 확인해야 할 수 있습니다.
-4. `secrets/dart_defines.json`에 `KAKAO_JS_KEY` 채우기
+- **공개 빌드에는 키를 넣지 않습니다.** 공개 저장소에 키가 박히기 때문입니다.
+  그래서 노선 검색과 주변 정류소가 동작하지 않고, 홈 상단에 그 사실을 표시하며
+  검색 버튼은 비활성입니다.
+- 키를 넣어도 웹에서 될지는 불확실합니다 — `apis.data.go.kr`가 CORS 헤더를 주지
+  않으면 브라우저가 막습니다. **확인하지 못했습니다.**
+- `webview_flutter`가 웹을 지원하지 않아 **지도 화면은 웹에서 항상 플레이스홀더**
+  입니다 (`map_screen.dart`에서 `kIsWeb`으로 차단 — JS 키가 있어도 안전).
+- AR 화면의 카메라·나침반은 웹에서 동작하지 않습니다.
+- CanvasKit을 CDN(`gstatic.com`)에서 받으므로 그 도메인이 막힌 망에서는 흰 화면이
+  됩니다. 그때는 `build/web`의 CanvasKit 로컬 사본을 쓰도록 경로를 바꿔야 합니다.
 
-### 기타
-- 위치: `geolocator`로 실제 GPS 좌표를 가져오지만, 좌표→정류장 매칭(역지오코딩)은
-  TOPIS 연동 전까지는 하드코딩된 문구를 씁니다.
-- AR: `flutter_compass` + `camera`를 실제로 사용합니다. 센서/카메라가 없는
-  환경(시뮬레이터 등)에서는 자동으로 드래그 시뮬레이션으로 대체됩니다.
-- 이 샌드박스에는 Android/iOS 네이티브 SDK가 없어 `flutter analyze` / `flutter test`까지만
-  검증했습니다. 실제 기기·에뮬레이터에서 `flutter run`으로 골든 패스를 확인해 주세요.
+`docs/`는 GitHub Pages용 빌드 사본입니다 (CanvasKit은 CDN을 쓰므로 제외 —
+11MB vs 47MB). 서비스 워커 등록은 뺐습니다: 계속 다시 올리는 중이라 워커가 이전
+빌드를 캐시해서 새로고침해도 옛 화면이 보이는 편이 훨씬 나쁩니다.
+
+---
+
+## 데이터 소스
+
+### TAGO 버스노선정보 — 검색의 핵심
+
+번호를 입력하고 검색을 누르면:
+
+1. `TagoRouteRepository.search` — **현재 위치로 범위를 좁혀가며** 그 번호가 등록된
+   도시/routeId를 찾고
+2. routeId마다 `getRouteAcctoThrghSttnList`로 실제 정류장 + 좌표를 받아 방면별
+   `RouteDir`을 조립하고 (`RouteDir.bearing`도 좌표 2개로 실제 계산)
+3. 결과를 `RouteCache`(`shared_preferences`)에 저장.
+
+정류장 좌표는 `RouteDir.stopCoords`에 `stops`와 같은 인덱스로 들어갑니다
+(`GeoPoint?`, 없으면 null). 지도·근접 정류장·구간별 일사가 모두 이 필드를 씁니다.
+
+**방면은 `updowncd`가 아니라 routeId로 갈립니다.** 세종(cityCode 12) `B7`을 조회하면
+`SJB271000805`(집현동→비하종점)와 `SJB271000806`(비하종점→집현동)이 같은 `routeno`로
+따로 옵니다. 실제 응답에 `updowncd`는 **없었습니다**. `search`가 routeId마다
+`RouteDir`을 만들어 이 케이스를 처리하고, `updowncd`가 오는 경우에도 그 안에서 한 번
+더 나눠 양쪽을 커버합니다.
+
+#### 호출 수 — 공개 배포에서 제일 중요한 제약
+
+TAGO는 `cityCode`가 **필수**라 "도시를 모르는 검색"이 없습니다. (`cityCode` 없이
+`routeNo=B7`만 넣으면 `resultCode: "00"` + `totalCount: 0`.) 그래서 앱이 도시를
+하나씩 물어보는 수밖에 없고, **호출 수 = 물어본 도시 수**입니다.
+
+전국을 훑으면 검색 한 번에 138회. 개발계정 일일 한도가 보통 1,000건이니 **앱
+전체를 통틀어 하루 일고여덟 번 검색하면 끝납니다.** 스토어 배포에 성립하지 않아
+범위를 단계적으로 넓힙니다:
+
+| 단계 | 범위 | 호출 수 |
+|---|---|---|
+| 1 | 카카오 로컬로 좌표 → 행정구역 → 그 도시 | 1~2회 |
+| 2 | 못 찾으면 **같은 도(道) 전체** (경기 기준 40개 안팎) | 수십 회 |
+| 3 | 그래도 못 찾고 `allowNationwide`면 전국 | 138회 |
+
+- 2단계가 필요한 이유: 광역버스는 사용자가 서 있는 시가 아니라 **옆 시에 등록**돼
+  있을 수 있습니다. 도 판별은 도시코드 앞 2자리 (`31010`, `31020` → `31` 경기).
+- 즐겨찾기 백그라운드 프리페치(`ensureRouteCached`)는 `allowNationwide: false`입니다.
+  요청하지도 않은 작업이 즐겨찾기 하나당 138번을 쓰면 앱을 켜는 것만으로 한도가
+  날아갑니다.
+- **지역은 알아냈는데 담당 도시가 하나도 없으면 전국 검색을 건너뜁니다.** 서울처럼
+  TAGO가 담당하지 않는 지역에서는 138개를 다 훑어도 나올 리 없습니다. 대신
+  `RouteSearchResult.unsupportedRegion`으로 올려보내 "서울특별시 버스는 아직
+  지원하지 않아요"라고 **이유를 말합니다** — "번호를 확인해 주세요"라고 하면
+  사용자가 번호만 계속 고쳐 넣습니다.
+
+#### 지원 지역 — 138개 도시, 서울 없음
+
+2026-09-08 `getCtyCodeList` 전체 목록 확인.
+
+| 광역 | 도시 수 | 비고 |
+|---|---|---|
+| 서울 | **0** | TAGO 미담당 |
+| 부산·대구·인천·광주·대전·울산 | 각 1 | 대전은 `대전광역시/계룡시`로 묶임 |
+| 세종 | 1 | TAGO 표기 `세종특별시` (카카오는 `세종특별자치시`) |
+| 제주 | 1 | TAGO 표기 `제주도` (카카오는 `제주특별자치도`) |
+| 경기 | 31 | 사실상 전 시·군 |
+| 강원 | **6** | 춘천·원주/횡성·태백·홍천·철원·양양뿐 — **강릉·속초·동해·삼척 없음** |
+| 충북 10 · 충남 13 · 전북 13 | | |
+| 전남 17 · 경북 22 · 경남 18 | | |
+
+**강원도가 특히 얇습니다.** 관광지가 빠져 있어서 그쪽 사용자는 "지원하지 않아요"가
+아니라 "노선을 찾을 수 없어요"를 봅니다(도 지역이라 미지원으로 단정하지 않기 때문).
+스토어 설명에 지원 지역을 밝혀두는 편이 안전합니다.
+
+**이름 표기가 카카오와 다릅니다.** 매칭이 어긋나면 조용히 138개를 훑거나 멀쩡한
+지역이 막히므로 실제 목록으로 고정한 테스트를 붙여뒀습니다
+(`test/tago_city_resolver_test.dart`). 까다로운 것들:
+
+- `세종특별시` ↔ `세종특별자치시`, `제주도` ↔ `제주특별자치도`
+- `대전광역시/계룡시`, `원주시/횡성군` — **한 코드에 두 지역**이라 슬래시로 갈라 비교
+- `광주광역시`(24) vs `광주시`(31250, 경기) — 이름이 겹치는 다른 지역
+- 강원·전북은 `특별자치도`로 개편 — 광역시처럼 취급하면 그 도 전체가 잘못 막히므로
+  `sidoIsSingleCity`는 `특별자치시`까지만 참으로 봅니다
+
+### TAGO 정류소정보 — 근접 정류소
+
+`lib/services/tago_station_service.dart` · `BusSttnInfoInqireService` ·
+**`getCrdntPrxmtSttnList`**. 2026-09-09 실호출 검증.
+
+- **반경 500m 제한.** 그 밖에서는 오류가 아니라 `totalCount: 0`이 옵니다. 홈 캡션이
+  자주 비는 것이 정상입니다.
+- 요청은 `gpsLati`/`gpsLong`(대문자 L), **응답은 `gpslati`/`gpslong`(전부 소문자)**.
+- `citycode`·`nodeno`가 **따옴표 없는 JSON 숫자**로 옵니다. `_pick`이 `toString()`으로
+  받아내서 통과하는데, 이걸 `as String?` 캐스트로 "정리"하면 전부 null이 되고 캡션이
+  조용히 사라집니다.
+- 명세 응답표에 없는 **`nodeno`가 실제로 옵니다.**
+
+요청 URL 철자는 `test/tago_station_url_test.dart`가, 응답 파싱은 실제 응답 원문을
+넣은 `test/tago_station_parse_test.dart`가 고정합니다.
+
+**안 쓰지만 확인해 둔 오퍼레이션**: `getSttnNoList`(정류소명·번호 검색, `cityCode`
+필수), `getCtyCodeList`(도시코드), `getSttnThrghRouteList`(정류소별 경유노선,
+`cityCode` + `nodeid` 필수). 마지막 것은 "이 정류장 지나는 노선" 기능에 쓸 수 있습니다.
+
+**홈 캡션의 2순위 경로**: 위 조회가 실패하면 `routeCache`에 있는 노선(즐겨찾기·최근
+검색)의 정류장 좌표 중 가장 가까운 것을 하버사인으로 고릅니다. 캐시에 있는 노선 위의
+정류장만 후보이고, 2km보다 멀면 캡션을 비웁니다.
+
+**방면 안의 가장 가까운 정류장**(`구간 지정` 화면의 "가까운 정류장으로" 버튼)은 이
+API와 무관합니다 — 이미 받아둔 `getRouteAcctoThrghSttnList` 좌표와 GPS를 하버사인으로
+비교합니다(`AppState.nearestStop`).
+
+### 카카오 로컬 — 좌표 → 행정구역
+
+2026-09-08 실호출 검증(세종 집현동). 확인된 응답 특성 세 가지를 매칭 로직이 모두
+반영합니다:
+
+- `region_type`이 B(법정동)/H(행정동) 두 건 옴 → **B 우선**
+- 시도가 약칭이 아닌 **전체 표기** (`"세종특별자치시"`)
+- **세종처럼 `region_2depth_name`이 빈 문자열**일 수 있음
+
+`region_3depth_name`(동)까지 받아 위치 바에 지명을 표시합니다
+(`KakaoRegion.displayName`, 예: `유성구 봉명동`). 실패하면 좌표 숫자를 띄우는 대신
+가까운 정류장 이름 → 담백한 문구 순으로 내려갑니다. 같은 동네에서 300m 안이면
+재호출하지 않습니다(일일 한도 절약).
+
+### 서울 — 미착수
+
+TAGO에 서울이 없으므로 **서울시 API를 따로 붙여야 합니다.** 버스 이용자가 가장 많은
+도시가 통째로 빠지므로 전국 배포에는 사실상 필수입니다.
+
+시작하지 않은 이유는 **키가 없고 이 환경에서 응답을 검증할 수 없기 때문**입니다.
+검증 없이 추측으로 짜면 틀린 코드가 나옵니다 (아래 [함정 모음](#겪은-함정-모음)의
+`appassets.androidplatform.net` 항목 참고).
+
+필요한 건 두 가지뿐입니다 (실시간 도착정보는 불필요):
+
+1. 노선번호 → 노선ID 검색
+2. 노선ID → 경유 정류장 목록 + **위경도 좌표**
+
+신청 경로 두 곳 — 어느 쪽이 위 둘을 주는지는 확인이 필요합니다:
+
+- **공공데이터포털(data.go.kr)** — TAGO 키를 받은 계정 그대로. "서울특별시 버스노선"
+  계열 데이터셋.
+- **서울 열린데이터광장(data.seoul.go.kr)** — 서울시 원본. 2025-09-26 국가정보자원
+  관리원 화재 이후 **신규 인증키 발급 중단** 안내가 검색에 잡혔습니다(기존 키는 사용
+  가능). 지금도 그런지는 확인이 필요합니다.
+
+**붙일 자리는 준비돼 있습니다.** `TagoRouteRepository.search`가 위치로 도시를
+판별하니 "행정구역이 서울이면 TOPIS provider" 분기를 그 지점에 넣으면 됩니다.
+`BusRoute`/`RouteDir`은 API 중립적인 모양(정류장 이름 + 좌표 + 진행 방위)이라 좌석
+계산은 그대로 재사용됩니다.
+
+---
+
+## 좌석 계산
+
+### 태양 위치 — `lib/logic/solar.dart`
+
+NOAA Solar Calculator. 위도·경도·날짜·시각을 받아 방위각·고도·일출·일몰을 계산합니다
+(`AppState.sun`). 위치를 못 받으면 전국 중심(대전 부근)을 씁니다 — 서울을 기본값으로
+두지 않는 이유는 TAGO가 서울을 담당하지 않아 실제 사용 지역과 가장 먼 값이 되기
+때문입니다.
+
+이 앱의 결론은 "왼쪽/오른쪽 창가" 하나뿐이고 그건 전적으로 방위각에서 나오므로,
+**방위각이 틀리면 답이 반대로 나오면서 화면은 똑같이 그럴듯합니다.** 눈으로는 못
+잡는 종류라 테스트로 잡습니다.
+
+검증(`test/solar_test.dart`)은 특정 사이트 수치를 베끼지 않고 **천문학적 사실**로
+고정했습니다: 남중 방위 180°, 남중고도 = 90° − 위도 + 적위, 춘분 정동 일출, 하지
+북동·동지 남동 일출, 위도별 낮 길이, 경도별 일출 순서.
+
+### 구간별 일사 — `lib/logic/seat_advice.dart`
+
+승차→하차 사이를 **실제 정류장 좌표로** 잘라서 구간마다:
+
+- 진행 방위 = 좌표 2개의 대권 방위각
+- 구간 거리 = 하버사인 (막대 폭이 이 값에 비례)
+- 그 구간을 지날 무렵의 태양 위치 = 위 천문 계산
+- → 태양이 좌·우 어느 쪽인지, 측면 일사가 얼마나 센지
+  (`sideLoad = sin(고도) × |sin(상대방위)|`)
+
+좌우 판정은 기점→종점 직선 하나가 아니라 **구간별 실제 방위를 거리로 가중 투표**
+합니다(`SeatCalc.preferLeftSeat`). 노선이 중간에 꺾이면 직선 방위는 실제 주행 방향과
+한참 다릅니다.
+
+범주는 `그늘 / 볕 듦 / 차이 적음` 세 가지입니다. **좌표가 없는 노선**은 빈 목록을
+돌려주고 결과 화면이 "구간별로 나눌 수 없어요"라고 표시합니다 — 가짜 막대를 그리지
+않습니다.
+
+검증: `test/segments_test.dart` — 북행/남행 구간 방위, 방향을 뒤집으면 태양이 반대쪽에
+오는지, 아침·오후에 좌우가 바뀌는지, ㄱ자 노선에서 구간마다 방위가 갈리는지, 좌표가
+없을 때 빈 목록인지.
+
+---
 
 ## 구조
 
 ```
 lib/
-  config/      카카오 앱 키 등 환경 설정
-  logic/       태양 방위/고도, 좌석 판정, 구간 일사 — 순수 함수
-  models/      노선/즐겨찾기/유저 데이터 모델
-  services/    카카오 로그인, 위치, 즐겨찾기 저장
+  config/      카카오 3종 키 · TAGO 키 (dart-define 주입)
+  logic/       태양 방위/고도, 좌석 판정, 구간 일사, 지오 — 순수 함수
+  models/      노선/즐겨찾기/유저 · TAGO 응답 DTO
+  services/    TAGO 노선·정류소, 카카오 로그인·로컬, 위치, 캐시
   state/       AppState (Provider ChangeNotifier) — 화면 전환 포함
   screens/     13개 화면
   theme/       색·타이포·스페이싱 토큰
   widgets/     커스텀 페인터(태양 궤적/좌석 지도/경로 지도), 공용 컴포넌트
+test/          50개 — 태양, 구간, 도시 매칭, TAGO 요청/응답
+docs/          GitHub Pages용 웹 빌드 사본 (키 없음)
 ```
+
+---
+
+## 겪은 함정 모음
+
+앞으로 같은 데 빠지지 않도록 남깁니다. 전부 실제로 겪은 것들입니다.
+
+**TAGO는 잘못된 요청도 "성공"으로 답합니다.** 없는 도시코드(`11`), 담당하지 않는
+지역(서울), `cityCode` 누락 — 셋 다 에러가 아니라 `resultCode: "00"` +
+`totalCount: 0`입니다. 0건이 나오면 API가 아니라 **파라미터부터** 의심하세요.
+
+**오퍼레이션 이름 오타가 "서비스 없음"으로 옵니다.** `getCrdntPrxmtStaionList`로
+부르고 있었는데 명세는 `getCrdntPrxmtSttnList`(Sttn)입니다. 응답은
+`NO_OPENAPI_SERVICE_ERROR`(코드 12)였고, 이걸 "활용신청이 안 됐나 보다"로 이틀간
+오진했습니다. 코드 12는 "해당 오픈API서비스가 없거나 폐기됨"이고, 활용신청 문제라면
+20(접근거부)이나 30(미등록 키)이 옵니다.
+
+**응답 인코딩 — 반드시 `bodyBytes`를 UTF-8로 직접 디코딩.** TAGO는 Content-Type에
+charset을 제대로 안 실어주는데, `http` 패키지의 `Response.body`는 charset이 없으면
+**latin1**로 디코딩합니다. 그대로 쓰면 정류장 이름 한글이 전부 깨집니다
+(`"?몄쥌?밸퀧"`). 모든 응답은 `decodeTagoBody()`를 거칩니다. 브라우저로 같은 URL을
+열었을 때 한글이 깨지는 것도 같은 원인이고, 그건 표시 문제일 뿐 데이터는 정상입니다.
+
+**정류장 목록은 페이징해야 합니다.** `getRouteStops`가 100개에서 잘리면 종점이 앞으로
+당겨지고, 그러면 진행 방위가 틀어져 **좌석 추천이 반대로** 나옵니다. `totalCount`를
+보고 페이징합니다.
+
+<a id="왜-localhost인가"></a>
+**카카오맵 WebView 오리진은 `localhost`이지 `appassets.androidplatform.net`이
+아닙니다.** `webview_flutter`의 `loadFlutterAsset`은 `file:///android_asset/...`
+(iOS도 `file://`)로 로드해서 오리진이 `file://`이 되는데, 이건 콘솔에 등록할 수
+없습니다. `appassets.androidplatform.net`은 **`flutter_inappwebview`의**
+`WebViewAssetLoader`가 쓰는 가상 도메인이라 이 앱과 무관합니다 — 등록해도 소용없습니다.
+그래서 `KakaoMapView`는 asset을 문자열로 읽어
+`loadHtmlString(html, baseUrl: KakaoJsConfig.sdkDomain)`으로 띄웁니다(Android
+`loadDataWithBaseUrl` / iOS `loadHTMLString(_:baseURL:)`). 오리진이 `sdkDomain`이 되어
+콘솔 등록값과 일치하고 Android/iOS 모두 같은 방식이 통합니다.
+
+**카카오 `NotAuthorizedError ... disabled OPEN_MAP_AND_LOCAL service`는 키 문제가
+아닙니다.** 제품 설정에서 카카오맵이 꺼져 있는 것입니다. 지도와 로컬 API 둘 다 같은
+스위치에 걸려 있습니다.
+
+**실패를 삼키면 화면에 아무 일도 안 일어납니다.** 근접 정류소 오타가 오래 살아남은
+이유가 이것입니다 — `_loadNearestStation`이 예외를 삼키고 캐시 경로로 넘어가서 캡션이
+그냥 안 뜰 뿐이었습니다. 같은 이유로 웹 빌드는 키가 없는데도 "네트워크를 확인해
+주세요"라고 말하고 있었습니다. 지금은 키가 없으면 **그렇다고 말하고** 검색 버튼을
+비활성으로 둡니다.
+
+file_path: /home/user/busseat-sun/README.md
+
+File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.
