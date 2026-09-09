@@ -38,6 +38,10 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
+            if (state.apiKeysMissing) ...[
+              _PreviewNotice(palette: palette, text: state.apiKeysMissingNotice),
+              const SizedBox(height: 8),
+            ],
             _LocationBar(palette: palette, state: state),
             const SizedBox(height: 6),
             _SunPanel(palette: palette, state: state),
@@ -71,7 +75,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 9),
             SolidButton(
               text: state.ctaText,
-              onTap: (hasQuery && !state.searching) ? state.submitSearch : null,
+              onTap: state.canSubmitSearch ? state.submitSearch : null,
               palette: palette,
             ),
           ],
@@ -297,6 +301,7 @@ class _FavoriteRow extends StatelessWidget {
 /// (TAGO 좌표기반 조회 → 실패 시 캐시된 노선 정류장 순).
 /// 위치를 아직 안 받았거나 후보가 없으면 조용히 안내 문구로 대체한다.
 String _nearbyStationCaption(AppState state) {
+  if (state.apiKeysMissing) return '미리보기에서는 조회할 수 없어요';
   if (state.nearbyStationLoading) return '가까운 정류장 찾는 중…';
   if (state.location == null) return '위치 아이콘을 눌러 확인';
   final near = state.nearbyStationLabel;
@@ -424,7 +429,10 @@ class _SearchHint extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 4),
       child: Text(
-        '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
+        // 키가 없으면 버튼이 비활성이라, "눌러서 찾아요"는 거짓말이 된다.
+        state.apiKeysMissing
+            ? '실제 검색은 앱을 설치해야 동작해요.'
+            : '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
         style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted),
       ),
     );
@@ -472,6 +480,51 @@ class _Keypad extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+
+/// API 키 없이 돌 때 홈 맨 위에 뜨는 안내 띠.
+///
+/// 카드를 하나 더 쌓지 않고 위치 바와 같은 결(둥근 subtle 배경)로 맞춘다.
+/// 경고색을 쓰지 않는 이유: 사용자가 뭘 잘못한 게 아니라 이 빌드의 성질이라
+/// 겁줄 일이 아니다. 대신 본문 색을 써서 읽히게는 한다.
+class _PreviewNotice extends StatelessWidget {
+  final AppPalette palette;
+  final String text;
+
+  const _PreviewNotice({required this.palette, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.subtle,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: palette.textMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontFamily: AppTextStyles.family,
+                fontSize: 12,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: palette.text,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

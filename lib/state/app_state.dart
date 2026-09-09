@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../config/tago_config.dart';
 import '../logic/geo.dart';
 import '../logic/sun_calc.dart';
 import '../models/route.dart';
@@ -91,6 +93,19 @@ class AppState extends ChangeNotifier {
   // 위치
   LocationResult? location;
   bool locationLoading = false;
+
+  /// TAGO 키 없이 돌고 있는가. 공개 웹 빌드(GitHub Pages)는 키 없이 컴파일하고,
+  /// 로컬에서도 `--dart-define-from-file`을 빼먹으면 이 상태가 된다.
+  ///
+  /// 이걸 드러내는 이유: 예전에는 키가 없어도 검색을 그냥 시도했고, 실패하면
+  /// "네트워크를 확인해 주세요"라고 말했다. 네트워크는 멀쩡한데 말이다.
+  /// 사용자는 앱이 고장 났다고 생각하고, 고칠 방법도 없다.
+  bool get apiKeysMissing => !TagoConfig.isConfigured;
+
+  /// [apiKeysMissing]일 때 홈 화면에 띄울 안내. 웹이냐 아니냐로 할 말이 다르다.
+  String get apiKeysMissingNotice => kIsWeb
+      ? '웹 미리보기라 노선 검색과 주변 정류장이 꺼져 있어요. 화면 구성만 둘러볼 수 있습니다.'
+      : 'API 키 없이 실행 중이에요. --dart-define-from-file=secrets/dart_defines.json 으로 다시 실행해 주세요.';
 
   /// 화면에 보여줄 현재 위치의 지명 (예: '유성구 봉명동'). 카카오 로컬로 받는다.
   /// 못 받으면 null이고, 그때는 좌표 숫자 대신 다른 문구로 대체한다 —
@@ -197,10 +212,15 @@ class AppState extends ChangeNotifier {
   List<String> get keypadKeys => keypadMode == 'abc' ? kAbcKeys : kNumKeys;
 
   String get ctaText {
+    if (apiKeysMissing) return '이 미리보기에서는 검색할 수 없어요';
     if (searching) return '검색 중…';
     if (query.isEmpty) return '버스 번호를 입력하세요';
     return '$query번 ${effectiveMode == SunMode.shade ? '그늘' : '햇살'} 계산하기';
   }
+
+  /// 검색 버튼을 누를 수 있는가. 키가 없으면 눌러봐야 같은 안내만 다시 뜨므로
+  /// 아예 비활성으로 둔다 — 홈 상단 배너가 이미 이유를 말하고 있다.
+  bool get canSubmitSearch => query.isNotEmpty && !searching && !apiKeysMissing;
 
   String get todayGreeting {
     final hh = DateTime.now().hour;
@@ -289,6 +309,11 @@ class AppState extends ChangeNotifier {
     final q = query.trim();
     if (q.isEmpty || searching) return;
 
+    // 버튼이 이미 비활성이라 여기 올 일은 없지만(canSubmitSearch), 즐겨찾기
+    // 프리페치 같은 다른 경로가 들어올 수 있어 방어로 남긴다. 문구를 다시
+    // 띄우지는 않는다 — 홈 배너가 같은 말을 하고 있어서 두 번 말하게 된다.
+    if (apiKeysMissing) return;
+
     searching = true;
     searchError = null;
     screen = AppScreen.loading;
@@ -314,7 +339,7 @@ class AppState extends ChangeNotifier {
         unsupportedRegion = result.unsupportedRegion;
       } catch (_) {
         route = null;
-        searchError = '노선 정보를 불러오지 못했어요. 네트워크를 확인해 주세요.';
+        searchError = '노선 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
       }
     }
 
@@ -648,7 +673,7 @@ class AppState extends ChangeNotifier {
   /// 위의 정류장만 후보가 된다.
   Future<void> _loadNearestStation() async {
     final loc = location;
-    if (loc == null) return;
+    if (loc == null || apiKeysMissing) return;
     nearbyStationLoading = true;
     notifyListeners();
 
