@@ -346,7 +346,11 @@ class _RecentsRow extends StatelessWidget {
         const SizedBox(height: 14),
         Text('최근 검색한 노선', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: .3, color: palette.textMuted)),
         const SizedBox(height: 8),
-        if (recents.isEmpty)
+        if (recents.isEmpty && state.demoRoute != null)
+          // 검색이 막힌 미리보기에서는 결과·좌석지도·구간지정 화면에 들어갈
+          // 방법이 아예 없다. 실제 TAGO 응답으로 만든 예시 노선 하나를 열어둔다.
+          _DemoRouteCard(palette: palette, state: state)
+        else if (recents.isEmpty)
           Container(
             height: 62,
             alignment: Alignment.centerLeft,
@@ -524,6 +528,89 @@ class _PreviewNotice extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// 미리보기에서만 뜨는 예시 노선 카드.
+///
+/// 좌표가 실제 TAGO 응답이라 눌러서 보이는 좌석 추천·구간 일사는 **진짜 계산
+/// 결과**다. 그래도 '예시'라고 먼저 말한다 — 지금 저 버스가 저기를 달리고
+/// 있다는 뜻은 아니고, 노선이 바뀌어도 이 데이터는 안 바뀐다.
+class _DemoRouteCard extends StatelessWidget {
+  final AppPalette palette;
+  final AppState state;
+
+  const _DemoRouteCard({required this.palette, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final dir = state.demoRoute!.dirs.first;
+    return Material(
+      color: palette.surfaceColor,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: state.openDemoRoute,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.line),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        _DemoBadge(palette: palette),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${state.demoRoute!.no}번',
+                          style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 15, fontWeight: FontWeight.w800, color: palette.text),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${dir.from} → ${dir.to} · 정류장 ${dir.stopCount}개',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12, color: palette.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, size: 20, color: palette.textMuted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// '예시' 배지. 결과 화면과 같은 모양을 쓴다.
+class _DemoBadge extends StatelessWidget {
+  final AppPalette palette;
+
+  const _DemoBadge({required this.palette});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: palette.subtle, borderRadius: BorderRadius.circular(AppRadius.pill)),
+      child: Text(
+        '예시',
+        style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: .2, color: palette.textMuted),
       ),
     );
   }

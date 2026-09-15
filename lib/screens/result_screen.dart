@@ -113,6 +113,23 @@ class ResultScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  // 예시 노선이면 숨기지 않고 먼저 말한다. 이 화면이 앱의
+                  // 결론이라, '지금 조회한 결과'로 오해되면 안 된다.
+                  if (state.usingDemoRoute)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '예시 노선입니다 — 실제 TAGO 응답으로 만든 B7(세종↔청주) 데이터라 '
+                        '좌석 계산은 그대로 돌아가지만, 운행 정보는 최신이 아닐 수 있어요.',
+                        style: TextStyle(
+                          fontFamily: AppTextStyles.family,
+                          fontSize: 10.5,
+                          height: 1.45,
+                          fontWeight: FontWeight.w700,
+                          color: palette.textMuted,
+                        ),
+                      ),
+                    ),
                   Text(
                     // 예전 문구는 '기상청 일사 … 기준 · 건물 그림자 반영'이었다.
                     // 둘 다 사실이 아니다 — 기상청 API를 부르지 않고, 건물 높이

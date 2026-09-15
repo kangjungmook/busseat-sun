@@ -8,7 +8,9 @@
 있다면 만들려던 게 이겁니다. 노선 번호만 넣으면 **왼쪽인지 오른쪽인지** 하나만
 답합니다.
 
-<img src="screenshots/01-login.png" width="270" alt="로그인 화면" />&nbsp;&nbsp;<img src="screenshots/02-home.png" width="270" alt="홈 화면 — 실제 계산된 태양 궤적" />
+<img src="screenshots/02-home.png" width="215" alt="홈 화면 — 실제 계산된 태양 궤적" />&nbsp;<img src="screenshots/03-result.png" width="215" alt="결과 화면 — 왼쪽 창가 추천과 구간별 일사" />&nbsp;<img src="screenshots/04-seatmap.png" width="215" alt="좌석별 그늘 지도" />
+
+<sub>가운데·오른쪽은 실제 TAGO 응답(세종 B7, 정류장 39개)으로 계산한 결과입니다.</sub>
 
 `Flutter` · `Dart` · `Provider` · 국토교통부 TAGO · 카카오 로그인/맵/로컬
 
@@ -124,7 +126,7 @@ TAGO는 `cityCode`가 **필수**라 "도시를 모르는 검색"이라는 게 �
 
 ## 검증
 
-`flutter test` **55개** · `flutter analyze` 오류·경고 **0** · 푸시할 때마다 CI에서 자동 실행
+`flutter test` **59개** · `flutter analyze` 오류·경고 **0** · 푸시할 때마다 CI에서 자동 실행
 
 | 테스트 | 잡는 것 |
 |---|---|
@@ -133,6 +135,7 @@ TAGO는 `cityCode`가 **필수**라 "도시를 모르는 검색"이라는 게 �
 | `tago_city_resolver_test` | 실제 138개 도시 목록으로 지역 매칭 고정 (`세종특별시` ↔ `세종특별자치시` 등) |
 | `tago_station_url_test` · `tago_station_parse_test` | API 요청 철자와 실제 응답 모양 |
 | `settings_store_test` | 설정이 저장·복원되는지, 저장값이 깨져도 앱이 뜨는지 |
+| `demo_route_test` | 예시 노선이 검색과 같은 조립 코드를 타고 좌표가 살아 있는지 |
 
 API는 브라우저·curl로 실제 응답을 받아가며 붙였습니다 — TAGO 노선/정류소,
 카카오 로컬 모두 실호출로 확인했고 응답 원문을 문서에 남겼습니다.
@@ -146,9 +149,14 @@ API는 브라우저·curl로 실제 응답을 받아가며 붙였습니다 — T
 ## 직접 열어보기
 
 **[화면 미리보기 (웹)](https://kangjungmook.github.io/busseat-sun/)** — 설치 없이
-화면 구성을 볼 수 있습니다. 단, **공개 빌드에는 API 키를 넣지 않으므로 노선 검색은
-동작하지 않습니다** (공개 저장소에 키가 박히기 때문). 앱이 그 사실을 화면에서
-알려줍니다.
+열어볼 수 있습니다. **공개 빌드에는 API 키를 넣지 않으므로 노선 검색은 동작하지
+않지만**(공개 저장소에 키가 박히기 때문), 홈에 있는 **예시 노선**을 누르면 결과·
+좌석지도·구간지정까지 그대로 볼 수 있습니다.
+
+그 예시는 지어낸 데이터가 아닙니다. `getRouteAcctoThrghSttnList`를 실제로 호출해
+받은 응답 원문(세종 B7, 정류장 39개)을 에셋으로 두고, **검색과 같은 파서·같은
+조립 코드**를 태웁니다. 그래서 거기 보이는 좌석 추천과 구간별 일사는 흉내가 아니라
+실제 계산 결과입니다. 화면에는 예시라고 표시해 둡니다.
 
 ```bash
 cp secrets/dart_defines.example.json secrets/dart_defines.json   # 키 채우기

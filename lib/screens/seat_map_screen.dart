@@ -181,7 +181,11 @@ class SeatMapScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '지하·터널 구간은 계산에서 제외했어요 · 좌석 배치는 ${route.no}번 표준 차량 기준',
+              // 예전 문구는 '지하·터널 구간은 계산에서 제외했어요 · 좌석 배치는
+              // N번 표준 차량 기준'이었다. 둘 다 사실이 아니다 — 터널 데이터를
+              // 가진 적이 없어 '지하·터널' 범주는 이미 삭제했고, 노선별 차량
+              // 좌석 배치 데이터도 없다(아래 그림은 일반적인 24석 배치다).
+              '좌석 배치는 일반적인 24석 기준이에요 — 실제 차량과 다를 수 있습니다',
               textAlign: TextAlign.center,
               style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 10.5, color: palette.textMuted),
             ),

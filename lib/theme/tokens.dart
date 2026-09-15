@@ -49,7 +49,7 @@ class SurfaceTokens {
   final Color mapBase;
   final Color mapRoad;
   final Color mapBlock;
-  final Color grey; // 지하·터널 해치
+  final Color grey; // 좌우 차이가 적은 구간
 
   const SurfaceTokens({
     required this.background,

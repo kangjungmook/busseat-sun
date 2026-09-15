@@ -127,15 +127,30 @@ class TagoRouteRepository {
     }
     if (dirs.isEmpty) return const RouteSearchResult();
 
-    return RouteSearchResult(
-      route: BusRoute(
+    return RouteSearchResult(route: _assemble(routeNo, routeType, dirs));
+  }
+
+  /// 정류소 목록 → [BusRoute]. 검색 경로와 예시 노선([DemoRouteService])이
+  /// **같은 조립 코드를 타도록** 밖으로 뺐다. 예시 노선이 실제와 다른 경로로
+  /// 만들어지면 미리보기에서 멀쩡해 보이는 것이 아무 의미가 없다.
+  static BusRoute? buildRoute({
+    required String routeNo,
+    String? routeType,
+    required List<TagoRouteStop> stops,
+    String? fallbackFrom,
+    String? fallbackTo,
+  }) {
+    final dirs = _toDirs(stops, fallbackFrom: fallbackFrom, fallbackTo: fallbackTo);
+    if (dirs.isEmpty) return null;
+    return _assemble(routeNo, routeType, dirs);
+  }
+
+  static BusRoute _assemble(String routeNo, String? routeType, List<RouteDir> dirs) => BusRoute(
         no: routeNo,
         kind: routeType ?? '버스',
         durationMin: _estimateDuration(dirs),
         dirs: dirs,
-      ),
-    );
-  }
+      );
 
   static List<RouteDir> _toDirs(
     List<TagoRouteStop> stops, {

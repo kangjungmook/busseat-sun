@@ -10,6 +10,7 @@ import '../models/route.dart';
 import '../models/user.dart';
 import '../services/favorites_store.dart';
 import '../services/kakao_auth_service.dart';
+import '../services/demo_route_service.dart';
 import '../services/kakao_local_service.dart';
 import '../services/location_service.dart';
 import '../services/route_cache.dart';
@@ -81,6 +82,13 @@ class AppState extends ChangeNotifier {
   // '정류장 도착 알림'은 백그라운드 위치 권한이 필요해 범위가 커서 행을 지웠고,
   // 나머지 둘은 실제로 동작하게 만들면서 인덱스 대신 이름을 붙였습니다.
 
+  /// 웹 미리보기용 예시 노선. 키가 없을 때만 불러온다 — 검색이 되는 빌드에서는
+  /// 실제 노선이 있으므로 예시가 끼어들 이유가 없다.
+  BusRoute? demoRoute;
+
+  /// 지금 보고 있는 노선이 예시인가. 결과 화면이 이 값으로 '예시' 표시를 띄운다.
+  bool usingDemoRoute = false;
+
   /// 앱을 켤 때 '오늘' 화면 대신 번호 입력 화면으로 시작한다.
   /// (기본값 false — 즐겨찾기가 있으면 '오늘' 화면이 이 앱의 3초 경로입니다.)
   bool startOnKeypad = false;
@@ -114,10 +122,16 @@ class AppState extends ChangeNotifier {
   /// 사용자는 앱이 고장 났다고 생각하고, 고칠 방법도 없다.
   bool get apiKeysMissing => !TagoConfig.isConfigured;
 
-  /// [apiKeysMissing]일 때 홈 화면에 띄울 안내. 웹이냐 아니냐로 할 말이 다르다.
-  String get apiKeysMissingNotice => kIsWeb
-      ? '웹 미리보기라 노선 검색과 주변 정류장이 꺼져 있어요. 화면 구성만 둘러볼 수 있습니다.'
-      : 'API 키 없이 실행 중이에요. --dart-define-from-file=secrets/dart_defines.json 으로 다시 실행해 주세요.';
+  /// [apiKeysMissing]일 때 홈 화면에 띄울 안내. 웹이냐 아니냐로 할 말이 다르고,
+  /// 예시 노선을 실제로 열 수 있게 됐으면 그쪽으로 안내한다.
+  String get apiKeysMissingNotice {
+    if (!kIsWeb) {
+      return 'API 키 없이 실행 중이에요. --dart-define-from-file=secrets/dart_defines.json 으로 다시 실행해 주세요.';
+    }
+    return demoRoute != null
+        ? '웹 미리보기라 노선 검색과 주변 정류장이 꺼져 있어요. 아래 예시 노선으로 결과 화면까지 둘러볼 수 있습니다.'
+        : '웹 미리보기라 노선 검색과 주변 정류장이 꺼져 있어요. 화면 구성만 둘러볼 수 있습니다.';
+  }
 
   /// 화면에 보여줄 현재 위치의 지명 (예: '유성구 봉명동'). 카카오 로컬로 받는다.
   /// 못 받으면 null이고, 그때는 좌표 숫자 대신 다른 문구로 대체한다 —
@@ -151,6 +165,22 @@ class AppState extends ChangeNotifier {
     _loadSettings();
     _loadFavorites();
     _loadRouteCache();
+    if (apiKeysMissing) _loadDemoRoute();
+  }
+
+  Future<void> _loadDemoRoute() async {
+    demoRoute = await DemoRouteService.load();
+    notifyListeners();
+  }
+
+  /// 예시 노선 열기. 실제 노선과 같은 화면·같은 계산을 타고, 다른 점은
+  /// [usingDemoRoute] 표시뿐이다.
+  void openDemoRoute() {
+    final route = demoRoute;
+    if (route == null) return;
+    chooseRoute(route);
+    usingDemoRoute = true;
+    notifyListeners();
   }
 
   /// 저장된 설정 복원. 앱이 뜬 직후 비동기로 들어오므로 첫 프레임은 기본값으로
@@ -400,6 +430,9 @@ class AppState extends ChangeNotifier {
 
   void chooseRoute(BusRoute route) {
     resolvedRoute = route;
+    // 실제 노선을 고르면 예시 표시는 사라져야 한다. 예시로 들어가는 쪽
+    // (openDemoRoute)이 이 호출 뒤에 다시 true로 세운다.
+    usingDemoRoute = false;
     if (route.dirs.length > 1) {
       screen = AppScreen.home;
       dirPickerOpen = true;
