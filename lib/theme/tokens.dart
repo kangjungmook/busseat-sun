@@ -132,7 +132,7 @@ class AppPalette {
 
   Color get sunDiscColor => mode == SunMode.sun ? modeTokens.accent : const Color(0xFFFB923C);
 
-  BoxShadow get cardShadow => isDark ? const BoxShadow(color: Color(0x80000000), blurRadius: 24, offset: Offset(0, 8)) : BoxShadow(color: const Color(0xFF1C1917).withOpacity(.10), blurRadius: 24, offset: const Offset(0, 8));
+  BoxShadow get cardShadow => isDark ? const BoxShadow(color: Color(0x80000000), blurRadius: 24, offset: Offset(0, 8)) : BoxShadow(color: const Color(0xFF1C1917).withValues(alpha: .10), blurRadius: 24, offset: const Offset(0, 8));
 }
 
 /// spacing 스케일: 4 · 6 · 8 · 11 · 14 · 18 · 22

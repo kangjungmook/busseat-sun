@@ -156,7 +156,7 @@ class _SunPanel extends StatelessWidget {
             child: CustomPaint(
               painter: SunArcPainter(
                 dayProgress: day,
-                trackColor: palette.isDark ? Colors.white.withOpacity(.16) : Colors.black.withOpacity(.13),
+                trackColor: palette.isDark ? Colors.white.withValues(alpha: .16) : Colors.black.withValues(alpha: .13),
                 fillColor: fillColor,
               ),
             ),

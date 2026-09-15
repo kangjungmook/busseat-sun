@@ -69,7 +69,7 @@ class SegmentedPill extends StatelessWidget {
                   boxShadow: on
                       ? [
                           BoxShadow(
-                            color: palette.isDark ? Colors.black.withOpacity(.55) : Colors.black.withOpacity(.12),
+                            color: palette.isDark ? Colors.black.withValues(alpha: .55) : Colors.black.withValues(alpha: .12),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
                           ),
@@ -178,7 +178,7 @@ class OutlineButton extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadius.button),
               border: Border.all(
-                color: palette.isDark ? Colors.white.withOpacity(.22) : Colors.black.withOpacity(.18),
+                color: palette.isDark ? Colors.white.withValues(alpha: .22) : Colors.black.withValues(alpha: .18),
                 width: 2,
               ),
             ),
@@ -267,7 +267,7 @@ class DirectionArrow extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.ease,
-      transform: Matrix4.identity()..scale(pointLeft ? -1.0 : 1.0, 1.0),
+      transform: Matrix4.identity()..scaleByDouble(pointLeft ? -1.0 : 1.0, 1.0, 1.0, 1.0),
       transformAlignment: Alignment.center,
       child: Icon(Icons.arrow_back, color: color, size: size),
     );

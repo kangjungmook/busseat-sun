@@ -128,7 +128,7 @@ class _TodayCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     '${fav.from} → ${fav.to}',
-                    style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12.5, fontWeight: FontWeight.w700, color: palette.onPrimary.withOpacity(.85)),
+                    style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12.5, fontWeight: FontWeight.w700, color: palette.onPrimary.withValues(alpha: .85)),
                   ),
                 ],
               ),
@@ -148,7 +148,7 @@ class _TodayCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           '이동 중 ${adv.pct}% $modeWord 좋음 · ${comp.durationMin}분',
-                          style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.onPrimary.withOpacity(.9)),
+                          style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.onPrimary.withValues(alpha: .9)),
                         ),
                       ],
                     ),

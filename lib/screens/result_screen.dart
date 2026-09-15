@@ -234,7 +234,7 @@ class _ConclusionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: palette.isDark ? Colors.black.withOpacity(.28) : Colors.black.withOpacity(.06),
+              color: palette.isDark ? Colors.black.withValues(alpha: .28) : Colors.black.withValues(alpha: .06),
               borderRadius: BorderRadius.circular(12),
               border: Border(left: BorderSide(color: palette.primary, width: 3)),
             ),

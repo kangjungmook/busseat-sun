@@ -229,7 +229,7 @@ class _SwitchRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Switch(value: value, onChanged: (_) => onTap(), activeColor: palette.primary),
+              Switch(value: value, onChanged: (_) => onTap(), activeThumbColor: palette.primary),
             ],
           ),
         ),

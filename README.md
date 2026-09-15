@@ -126,7 +126,7 @@ TAGO는 `cityCode`가 **필수**라 "도시를 모르는 검색"이라는 게 �
 
 ## 검증
 
-`flutter test` **59개** · `flutter analyze` 오류·경고 **0** · 푸시할 때마다 CI에서 자동 실행
+`flutter test` **59개** · `flutter analyze` 지적 **0건** · 푸시할 때마다 CI에서 자동 실행
 
 | 테스트 | 잡는 것 |
 |---|---|

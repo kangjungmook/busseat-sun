@@ -142,7 +142,7 @@ class _ArScreenState extends State<ArScreen> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: const Color(0xFFFDE68A),
-                                  boxShadow: [BoxShadow(color: const Color(0xFFFDE68A).withOpacity(.55), blurRadius: 90, spreadRadius: 20)],
+                                  boxShadow: [BoxShadow(color: const Color(0xFFFDE68A).withValues(alpha: .55), blurRadius: 90, spreadRadius: 20)],
                                 ),
                               ),
                             ),
@@ -171,7 +171,7 @@ class _ArScreenState extends State<ArScreen> {
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                                decoration: BoxDecoration(color: Colors.black.withOpacity(.6), borderRadius: BorderRadius.circular(999)),
+                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: .6), borderRadius: BorderRadius.circular(999)),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -187,7 +187,7 @@ class _ArScreenState extends State<ArScreen> {
                               const Spacer(),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                                decoration: BoxDecoration(color: Colors.black.withOpacity(.6), borderRadius: BorderRadius.circular(999)),
+                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: .6), borderRadius: BorderRadius.circular(999)),
                                 child: Text(
                                   '단말 방위 ${((heading % 360) + 360) % 360 ~/ 1}°',
                                   style: const TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white),
@@ -203,7 +203,7 @@ class _ArScreenState extends State<ArScreen> {
                             top: h / 2,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                              decoration: BoxDecoration(color: Colors.black.withOpacity(.72), borderRadius: BorderRadius.circular(999)),
+                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: .72), borderRadius: BorderRadius.circular(999)),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -256,7 +256,7 @@ class _WindowPane extends StatelessWidget {
     return Container(
       height: 90,
       decoration: BoxDecoration(
-        color: lit ? const Color(0xFFFBBF24).withOpacity(.26) : Colors.white.withOpacity(.06),
+        color: lit ? const Color(0xFFFBBF24).withValues(alpha: .26) : Colors.white.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: lit ? const Color(0xFFFBBF24) : Colors.white24, width: lit ? 2 : 1),
       ),
@@ -277,11 +277,11 @@ class _RayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFDE68A).withOpacity(fade ? .25 : .85)
+      ..color = const Color(0xFFFDE68A).withValues(alpha: fade ? .25 : .85)
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
     _dashedLine(canvas, sun, target, paint);
-    final patch = Paint()..color = const Color(0xFFFBBF24).withOpacity(.30);
+    final patch = Paint()..color = const Color(0xFFFBBF24).withValues(alpha: .30);
     canvas.drawCircle(target, 26, patch);
   }
 
@@ -376,7 +376,7 @@ class _ArSheet extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(color: palette.primary.withOpacity(.14), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(color: palette.primary.withValues(alpha: .14), borderRadius: BorderRadius.circular(14)),
                 child: DirectionArrow(pointLeft: adv.leftSeat, color: palette.primaryText, size: 24),
               ),
               const SizedBox(width: 12),

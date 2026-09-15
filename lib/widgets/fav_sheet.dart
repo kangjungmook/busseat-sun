@@ -27,7 +27,7 @@ class FavSheet extends StatelessWidget {
       child: GestureDetector(
         onTap: state.closeFavSheet,
         child: Container(
-          color: Colors.black.withOpacity(.42),
+          color: Colors.black.withValues(alpha: .42),
           alignment: Alignment.bottomCenter,
           child: GestureDetector(
             onTap: () {},

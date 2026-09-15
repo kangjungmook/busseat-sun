@@ -31,8 +31,9 @@ jobs:
         run: dart format --output=none --set-exit-if-changed --line-length 120 lib test
         continue-on-error: true
 
-      # analyze는 info 수준 경고가 51건 있어 --fatal-infos를 켜지 않습니다.
-      # 오류와 경고는 0이어야 하고, 그건 기본 동작으로 막힙니다.
+      # `flutter analyze`는 **info 수준 지적 하나만 있어도 exit 1**입니다
+      # (첫 CI 실행이 이것 때문에 빨갛게 떴습니다 — withOpacity 지원 중단 등
+      # info 51건이 남아 있었습니다). 지금은 전부 정리해서 0입니다.
       - name: Analyze
         run: flutter analyze
 

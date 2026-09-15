@@ -94,7 +94,7 @@ class RouteMapPainter extends CustomPainter {
       canvas.drawLine(Offset(x, -10), Offset(x, 800), roadMajor);
     }
     final roadMinor = Paint()
-      ..color = palette.surface.mapRoad.withOpacity(.85)
+      ..color = palette.surface.mapRoad.withValues(alpha: .85)
       ..strokeWidth = 6;
     for (final y in [32.0, 188.0, 348.0, 502.0, 656.0]) {
       canvas.drawLine(Offset(-40, y), Offset(430, y), roadMinor);

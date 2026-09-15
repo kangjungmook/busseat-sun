@@ -90,7 +90,7 @@ class _Skeleton extends StatelessWidget {
         final opacity = 0.5 - (0.28 * (1 - (t - 0.5).abs() * 2)).clamp(0.0, 0.28);
         return Container(
           height: height,
-          decoration: BoxDecoration(color: palette.subtle.withOpacity(opacity.clamp(0.22, 0.5)), borderRadius: BorderRadius.circular(radius)),
+          decoration: BoxDecoration(color: palette.subtle.withValues(alpha: opacity.clamp(0.22, 0.5)), borderRadius: BorderRadius.circular(radius)),
         );
       },
     );

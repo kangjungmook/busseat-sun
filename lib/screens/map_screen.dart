@@ -173,7 +173,7 @@ class MapScreen extends StatelessWidget {
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
             transformAlignment: Alignment.bottomCenter,
-            transform: Matrix4.identity()..scale(1.0, state.guiding ? 0.94 : 1.0),
+            transform: Matrix4.identity()..scaleByDouble(1.0, state.guiding ? 0.94 : 1.0, 1.0, 1.0),
             constraints: BoxConstraints(maxHeight: state.guiding ? 0 : 280),
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 320),
@@ -200,7 +200,7 @@ class _MapLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(color: palette.surfaceColor.withOpacity(.92), borderRadius: BorderRadius.circular(7), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)]),
+      decoration: BoxDecoration(color: palette.surfaceColor.withValues(alpha: .92), borderRadius: BorderRadius.circular(7), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)]),
       child: Text(text, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11.5, fontWeight: FontWeight.w800, color: palette.text)),
     );
   }
@@ -230,7 +230,7 @@ class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixi
         return Stack(
           alignment: Alignment.center,
           children: [
-            Transform.scale(scale: scale, child: Container(width: 14, height: 14, decoration: BoxDecoration(color: kLocationBlue.withOpacity(opacity), shape: BoxShape.circle))),
+            Transform.scale(scale: scale, child: Container(width: 14, height: 14, decoration: BoxDecoration(color: kLocationBlue.withValues(alpha: opacity), shape: BoxShape.circle))),
             Container(width: 14, height: 14, decoration: BoxDecoration(color: kLocationBlue, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 5)])),
           ],
         );

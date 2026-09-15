@@ -55,7 +55,7 @@ class WidgetScreen extends StatelessWidget {
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(color: palette.surfaceColor.withOpacity(.9), borderRadius: BorderRadius.circular(18)),
+                    decoration: BoxDecoration(color: palette.surfaceColor.withValues(alpha: .9), borderRadius: BorderRadius.circular(18)),
                     child: Row(
                       children: [
                         if (adv != null) DirectionArrow(pointLeft: adv.leftSeat, color: palette.primaryText, size: 20),

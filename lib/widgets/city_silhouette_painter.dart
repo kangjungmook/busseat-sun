@@ -8,7 +8,7 @@ class CitySilhouettePainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, horizon), Paint()..color = const Color(0xFF8FA0B2));
     canvas.drawRect(Rect.fromLTWH(0, horizon, size.width, size.height - horizon), Paint()..color = const Color(0xFF3A3633));
 
-    final buildingPaint = Paint()..color = const Color(0xFF2B2724).withOpacity(.92);
+    final buildingPaint = Paint()..color = const Color(0xFF2B2724).withValues(alpha: .92);
     final w = size.width;
     final buildings = [
       Rect.fromLTWH(-w * 0.02, horizon - 146, w * 0.22, 146),

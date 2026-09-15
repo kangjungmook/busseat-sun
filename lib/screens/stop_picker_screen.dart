@@ -110,7 +110,7 @@ class StopPickerScreen extends StatelessWidget {
                   return Opacity(
                     opacity: dim ? .42 : 1,
                     child: Material(
-                      color: active ? (palette.isDark ? Colors.white.withOpacity(.06) : palette.surfaceColor) : palette.subtle,
+                      color: active ? (palette.isDark ? Colors.white.withValues(alpha: .06) : palette.surfaceColor) : palette.subtle,
                       borderRadius: BorderRadius.circular(16),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),

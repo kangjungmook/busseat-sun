@@ -65,8 +65,8 @@ class SeatMapScreen extends StatelessWidget {
                     clipBehavior: Clip.antiAlias,
                     child: Row(
                       children: [
-                        Expanded(flex: leftAvg, child: Container(color: leftAvg >= rightAvg ? goodColor : badColor.withOpacity(.75))),
-                        Expanded(flex: rightAvg, child: Container(color: rightAvg > leftAvg ? goodColor : badColor.withOpacity(.75))),
+                        Expanded(flex: leftAvg, child: Container(color: leftAvg >= rightAvg ? goodColor : badColor.withValues(alpha: .75))),
+                        Expanded(flex: rightAvg, child: Container(color: rightAvg > leftAvg ? goodColor : badColor.withValues(alpha: .75))),
                       ],
                     ),
                   ),
@@ -84,7 +84,7 @@ class SeatMapScreen extends StatelessWidget {
                   children: [
                     Container(
                       height: 26,
-                      decoration: BoxDecoration(color: kLocationBlue.withOpacity(palette.isDark ? .22 : .10), borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(color: kLocationBlue.withValues(alpha: palette.isDark ? .22 : .10), borderRadius: BorderRadius.circular(10)),
                       alignment: Alignment.center,
                       child: Text('앞유리 · 진행 방향 ↑', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 10.5, fontWeight: FontWeight.w800, color: palette.textMuted)),
                     ),
@@ -140,9 +140,9 @@ class SeatMapScreen extends StatelessWidget {
               children: [
                 _Legend(color: goodColor, label: '그늘 강', palette: palette),
                 const SizedBox(width: 11),
-                _Legend(color: goodColor.withOpacity(.42), label: '보통', palette: palette),
+                _Legend(color: goodColor.withValues(alpha: .42), label: '보통', palette: palette),
                 const SizedBox(width: 11),
-                _Legend(color: badColor.withOpacity(.38), label: '약한 직사광', palette: palette),
+                _Legend(color: badColor.withValues(alpha: .38), label: '약한 직사광', palette: palette),
                 const SizedBox(width: 11),
                 _Legend(color: badColor, label: '강한 직사광', palette: palette),
               ],
@@ -213,9 +213,9 @@ class _SeatRow extends StatelessWidget {
       case ShadeLevel.strong:
         return goodColor;
       case ShadeLevel.mid:
-        return goodColor.withOpacity(.42);
+        return goodColor.withValues(alpha: .42);
       case ShadeLevel.weak:
-        return badColor.withOpacity(.38);
+        return badColor.withValues(alpha: .38);
       case ShadeLevel.direct:
         return badColor;
     }
@@ -229,14 +229,14 @@ class _SeatRow extends StatelessWidget {
   }
 
   Widget _winStrip(int score) {
-    final level = score >= 70 ? goodColor.withOpacity(.75) : (score >= 45 ? badColor.withOpacity(.5) : badColor);
+    final level = score >= 70 ? goodColor.withValues(alpha: .75) : (score >= 45 ? badColor.withValues(alpha: .5) : badColor);
     return Container(width: 8, decoration: BoxDecoration(color: level, borderRadius: BorderRadius.circular(3)));
   }
 
   Widget _seat(int col) {
     final score = SeatCalc.seatScore(row, col, adv);
     final isBest = best.row == row && best.col == col;
-    final label = (isBest ? '★' : '') + '${row * 4 + col + 1}';
+    final label = '${isBest ? '★' : ''}${row * 4 + col + 1}';
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 1),
@@ -286,7 +286,7 @@ class _RearRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget winStrip(int score) {
-      final c = score >= 70 ? goodColor.withOpacity(.75) : (score >= 45 ? badColor.withOpacity(.5) : badColor);
+      final c = score >= 70 ? goodColor.withValues(alpha: .75) : (score >= 45 ? badColor.withValues(alpha: .5) : badColor);
       return Container(width: 8, height: 42, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)));
     }
 
@@ -299,7 +299,7 @@ class _RearRow extends StatelessWidget {
           Expanded(
             child: Container(
               height: 42,
-              decoration: BoxDecoration(color: goodColor.withOpacity(.28), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: goodColor.withValues(alpha: .28), borderRadius: BorderRadius.circular(10)),
               alignment: Alignment.center,
               child: Text('맨 뒷줄 5석 · 평균 ${((leftAvg + rightAvg) / 2).round()}%', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 10, fontWeight: FontWeight.w800, color: palette.text)),
             ),

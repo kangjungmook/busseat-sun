@@ -78,7 +78,7 @@ class SunArcPainter extends CustomPainter {
     canvas.drawPath(fillPath, fillPaint);
 
     final sunPos = domePoint(dayProgress);
-    canvas.drawCircle(sunPos, 15, Paint()..color = fillColor.withOpacity(.2));
+    canvas.drawCircle(sunPos, 15, Paint()..color = fillColor.withValues(alpha: .2));
     canvas.drawCircle(sunPos, 9, Paint()..color = fillColor);
 
     canvas.restore();

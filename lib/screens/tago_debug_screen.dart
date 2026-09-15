@@ -51,7 +51,7 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
   Future<String> _testCityCodes() async {
     final cities = await TagoBusService.getCityCodes();
     if (cities.isEmpty) return '✅ 응답은 왔지만 목록이 비어 있음 (필드명이 다를 수 있음)';
-    return '✅ 도시 ${cities.length}개\n\n' + cities.map((c) => '${c.code}\t${c.name}').join('\n');
+    return '✅ 도시 ${cities.length}개\n\n${cities.map((c) => '${c.code}\t${c.name}').join('\n')}';
   }
 
   Future<String> _testRouteSearch() async {
@@ -60,7 +60,7 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
       routeNo: _routeNoCtrl.text.trim(),
     );
     if (routes.isEmpty) return '✅ 응답은 왔지만 목록이 비어 있음 (도시코드가 안 맞거나 필드명이 다를 수 있음)';
-    return '✅ 노선 ${routes.length}개\n\n' + routes.map((r) => 'routeId=${r.routeId}  routeNo=${r.routeNo}  type=${r.routeType}\n  ${r.startNodeName} → ${r.endNodeName}\n  raw=${r.raw}').join('\n\n');
+    return '✅ 노선 ${routes.length}개\n\n${routes.map((r) => 'routeId=${r.routeId}  routeNo=${r.routeNo}  type=${r.routeType}\n  ${r.startNodeName} → ${r.endNodeName}\n  raw=${r.raw}').join('\n\n')}';
   }
 
   Future<String> _testRouteStops() async {
@@ -69,7 +69,7 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
       routeId: _routeIdCtrl.text.trim(),
     );
     if (stops.isEmpty) return '✅ 응답은 왔지만 목록이 비어 있음';
-    return '✅ 정류소 ${stops.length}개\n\n' + stops.map((s) => '${s.order ?? '-'}. ${s.nodeName} (${s.nodeId}) lat=${s.lat} lng=${s.lng}').join('\n');
+    return '✅ 정류소 ${stops.length}개\n\n${stops.map((s) => '${s.order ?? '-'}. ${s.nodeName} (${s.nodeId}) lat=${s.lat} lng=${s.lng}').join('\n')}';
   }
 
   Future<String> _testNationwideSearch() async {
@@ -81,7 +81,7 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
       },
     );
     if (matches.isEmpty) return '❌ 전국 어디에도 "$routeNo" 노선이 없습니다 (번호를 확인하세요)';
-    return '✅ ${matches.length}건 발견\n\n' + matches.map((m) => '${m.city.name} (cityCode=${m.city.code})\n  routeId=${m.route.routeId}  routeNo=${m.route.routeNo}  ${m.route.startNodeName} → ${m.route.endNodeName}').join('\n\n');
+    return '✅ ${matches.length}건 발견\n\n${matches.map((m) => '${m.city.name} (cityCode=${m.city.code})\n  routeId=${m.route.routeId}  routeNo=${m.route.routeNo}  ${m.route.startNodeName} → ${m.route.endNodeName}').join('\n\n')}';
   }
 
   @override
@@ -109,7 +109,7 @@ class _TagoDebugScreenState extends State<TagoDebugScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(color: palette.badColor.withOpacity(.15), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: palette.badColor.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
                 child: Text('TAGO_API_KEY가 설정되지 않았습니다. secrets/dart_defines.json을 채우고 --dart-define-from-file로 실행하세요.', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12.5, color: palette.text)),
               ),
             Row(
