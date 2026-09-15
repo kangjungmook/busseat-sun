@@ -12,6 +12,8 @@
 
 `Flutter` · `Dart` · `Provider` · 국토교통부 TAGO · 카카오 로그인/맵/로컬
 
+[![CI](https://github.com/kangjungmook/busseat-sun/actions/workflows/ci.yml/badge.svg)](https://github.com/kangjungmook/busseat-sun/actions/workflows/ci.yml)
+
 </div>
 
 ---
@@ -122,7 +124,7 @@ TAGO는 `cityCode`가 **필수**라 "도시를 모르는 검색"이라는 게 �
 
 ## 검증
 
-`flutter test` **50개** · `flutter analyze` 오류·경고 **0**
+`flutter test` **55개** · `flutter analyze` 오류·경고 **0** · 푸시할 때마다 CI에서 자동 실행
 
 | 테스트 | 잡는 것 |
 |---|---|
@@ -130,6 +132,7 @@ TAGO는 `cityCode`가 **필수**라 "도시를 모르는 검색"이라는 게 �
 | `segments_test` | 노선을 뒤집으면 태양이 반대쪽에 오는지, 꺾이는 노선의 구간별 방위 |
 | `tago_city_resolver_test` | 실제 138개 도시 목록으로 지역 매칭 고정 (`세종특별시` ↔ `세종특별자치시` 등) |
 | `tago_station_url_test` · `tago_station_parse_test` | API 요청 철자와 실제 응답 모양 |
+| `settings_store_test` | 설정이 저장·복원되는지, 저장값이 깨져도 앱이 뜨는지 |
 
 API는 브라우저·curl로 실제 응답을 받아가며 붙였습니다 — TAGO 노선/정류소,
 카카오 로컬 모두 실호출로 확인했고 응답 원문을 문서에 남겼습니다.

@@ -118,7 +118,12 @@ class ResultScreen extends StatelessWidget {
                     // 둘 다 사실이 아니다 — 기상청 API를 부르지 않고, 건물 높이
                     // 데이터도 없다. 앱의 결론이 나오는 화면에서 근거를 지어내면
                     // 사용자가 이 답을 실제보다 더 믿게 된다.
-                    '태양 위치 ${comp.timeLabel} 기준 · 직사광 기준(건물 그림자 미반영) · ${comp.spanLabel} 구간',
+                    // 설정의 '계산 근거 자세히 보기'가 실제로 붙는 자리.
+                    // 켜면 이 답이 어느 태양 위치에서 나왔는지를 숫자로 보여준다.
+                    state.showCalcDetail
+                        ? '태양 ${comp.azimuthLong} · 고도 ${comp.altitudeDeg.round()}° · '
+                            '${comp.timeLabel} 기준 · 직사광 기준(건물 그림자 미반영) · ${comp.spanLabel} 구간'
+                        : '태양 위치 ${comp.timeLabel} 기준 · 직사광 기준(건물 그림자 미반영) · ${comp.spanLabel} 구간',
                     style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 10.5, color: palette.textMuted),
                   ),
                 ],

@@ -115,11 +115,25 @@ class SettingsScreen extends StatelessWidget {
               decoration: BoxDecoration(color: palette.surfaceColor, borderRadius: BorderRadius.circular(18)),
               child: Column(
                 children: [
-                  _SwitchRow(title: '정류장 도착 알림', subtitle: '탑승 3분 전에 좌석 안내를 다시 띄워요', value: state.switches[0], onTap: () => state.toggleSwitch(0), palette: palette),
+                  // '정류장 도착 알림' 행은 지웠다. 켜도 아무 일이 없었고,
+                  // 제대로 만들려면 백그라운드 위치 권한이 필요해 범위가 크다
+                  // (개인정보처리방침의 "백그라운드에서 위치를 받지 않습니다"도
+                  // 같이 바뀐다). 없는 기능을 스위치로 약속해두느니 뺀다.
+                  _SwitchRow(
+                    title: '번호 입력 화면으로 시작',
+                    subtitle: '즐겨찾기가 있어도 오늘 화면을 건너뜁니다',
+                    value: state.startOnKeypad,
+                    onTap: state.toggleStartOnKeypad,
+                    palette: palette,
+                  ),
                   Container(height: 1, color: palette.line),
-                  _SwitchRow(title: '앱 켤 때 번호판 자동 열기', subtitle: '실행 즉시 숫자 키패드에 포커스', value: state.switches[1], onTap: () => state.toggleSwitch(1), palette: palette),
-                  Container(height: 1, color: palette.line),
-                  _SwitchRow(title: '계산 근거 자세히 보기', subtitle: '태양 고도·건물 높이 값을 함께 표시', value: state.switches[2], onTap: () => state.toggleSwitch(2), palette: palette),
+                  _SwitchRow(
+                    title: '계산 근거 자세히 보기',
+                    subtitle: '결과 화면에 태양 고도·방위를 함께 표시',
+                    value: state.showCalcDetail,
+                    onTap: state.toggleCalcDetail,
+                    palette: palette,
+                  ),
                 ],
               ),
             ),

@@ -13,6 +13,7 @@ import '../services/kakao_auth_service.dart';
 import '../services/kakao_local_service.dart';
 import '../services/location_service.dart';
 import '../services/route_cache.dart';
+import '../services/settings_store.dart';
 import '../services/tago_route_repository.dart';
 import '../services/tago_station_service.dart';
 import '../theme/tokens.dart';
@@ -73,8 +74,19 @@ class AppState extends ChangeNotifier {
   bool favSheetOpen = false;
   String favLabel = '퇴근';
 
-  // 동작 스위치: [정류장 도착 알림, 앱 켤 때 키패드 자동 열기, 계산 근거 자세히]
-  List<bool> switches = [true, true, false];
+  // 동작 스위치.
+  //
+  // 예전에는 `List<bool> switches = [true, true, false]`였고 **셋 다 어디에서도
+  // 읽히지 않았습니다** — 설정 화면이 켜고 끄는 시늉만 했습니다. 그중
+  // '정류장 도착 알림'은 백그라운드 위치 권한이 필요해 범위가 커서 행을 지웠고,
+  // 나머지 둘은 실제로 동작하게 만들면서 인덱스 대신 이름을 붙였습니다.
+
+  /// 앱을 켤 때 '오늘' 화면 대신 번호 입력 화면으로 시작한다.
+  /// (기본값 false — 즐겨찾기가 있으면 '오늘' 화면이 이 앱의 3초 경로입니다.)
+  bool startOnKeypad = false;
+
+  /// 결과 화면에 태양 고도·방위 값을 함께 보여준다.
+  bool showCalcDetail = false;
 
   // 방면 선택 바텀시트
   bool dirPickerOpen = false;
@@ -136,8 +148,32 @@ class AppState extends ChangeNotifier {
     final now = DateTime.now();
     minutes = (now.hour * 60 + now.minute).clamp(0, 1439);
     KakaoAuthService.init();
+    _loadSettings();
     _loadFavorites();
     _loadRouteCache();
+  }
+
+  /// 저장된 설정 복원. 앱이 뜬 직후 비동기로 들어오므로 첫 프레임은 기본값으로
+  /// 그려졌다가 곧 바뀝니다 — 테마가 한 번 깜빡일 수 있지만, 설정을 기다리느라
+  /// 스플래시를 늘리는 것보다 낫습니다.
+  Future<void> _loadSettings() async {
+    final s = await SettingsStore.load();
+    themePref = s.themePref;
+    seasonAuto = s.seasonAuto;
+    modeOverride = s.modeOverride;
+    startOnKeypad = s.startOnKeypad;
+    showCalcDetail = s.showCalcDetail;
+    notifyListeners();
+  }
+
+  void _saveSettings() {
+    unawaited(SettingsStore.save(AppSettings(
+      themePref: themePref,
+      seasonAuto: seasonAuto,
+      modeOverride: modeOverride,
+      startOnKeypad: startOnKeypad,
+      showCalcDetail: showCalcDetail,
+    )));
   }
 
   Future<void> _loadFavorites() async {
@@ -270,7 +306,10 @@ class AppState extends ChangeNotifier {
   }
 
   void _enterAfterLogin() {
-    screen = favorites.isNotEmpty ? AppScreen.today : AppScreen.home;
+    // 즐겨찾기가 있으면 '오늘' 화면이 기본 — 그게 이 앱이 말하는 3초 경로다.
+    // 설정에서 끄면 언제나 번호 입력 화면으로 연다.
+    final useToday = favorites.isNotEmpty && !startOnKeypad;
+    screen = useToday ? AppScreen.today : AppScreen.home;
     notifyListeners();
   }
 
@@ -411,12 +450,14 @@ class AppState extends ChangeNotifier {
   void setMode(SunMode mode) {
     modeOverride = mode;
     seasonAuto = false;
+    _saveSettings();
     notifyListeners();
   }
 
   void setSeasonAuto() {
     seasonAuto = true;
     modeOverride = null;
+    _saveSettings();
     notifyListeners();
   }
 
@@ -426,11 +467,19 @@ class AppState extends ChangeNotifier {
 
   void setThemePref(AppThemePref pref) {
     themePref = pref;
+    _saveSettings();
     notifyListeners();
   }
 
-  void toggleSwitch(int i) {
-    switches[i] = !switches[i];
+  void toggleStartOnKeypad() {
+    startOnKeypad = !startOnKeypad;
+    _saveSettings();
+    notifyListeners();
+  }
+
+  void toggleCalcDetail() {
+    showCalcDetail = !showCalcDetail;
+    _saveSettings();
     notifyListeners();
   }
 

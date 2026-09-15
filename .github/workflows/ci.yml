@@ -1,0 +1,45 @@
+name: CI
+
+# 좌석 추천이 반대로 나오는 종류의 버그는 화면으로 안 잡힙니다
+# (README의 "만들면서 가장 오래 붙든 세 가지" 참고). 그래서 태양 계산과
+# 구간 방위, TAGO 요청/응답 모양을 테스트로 고정해 뒀고, 그게 실제로
+# 돌아가는지를 여기서 매번 확인합니다.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # 로컬에서 쓰는 버전과 맞춥니다. stable 최신을 따라가게 두면
+          # 플러터가 올라갈 때 우리 코드와 무관하게 빨개집니다.
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # 서식이 어긋나도 빌드를 막지는 않되, 어디가 어긋났는지는 보여줍니다.
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed --line-length 120 lib test
+        continue-on-error: true
+
+      # analyze는 info 수준 경고가 51건 있어 --fatal-infos를 켜지 않습니다.
+      # 오류와 경고는 0이어야 하고, 그건 기본 동작으로 막힙니다.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # 웹 빌드가 깨지면 docs/(GitHub Pages 미리보기)도 같이 깨집니다.
+      # 키 없이 빌드해서, 공개 빌드에 키가 들어갈 일이 없다는 것도 함께 확인됩니다.
+      - name: Build web (키 없이 — 공개 빌드와 같은 조건)
+        run: flutter build web --release --base-href /busseat-sun/
