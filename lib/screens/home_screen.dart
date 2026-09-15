@@ -430,13 +430,35 @@ class _SearchHint extends StatelessWidget {
         child: Text(state.searchError!, style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted)),
       );
     }
+    // 번호를 한 글자라도 누르면 이 영역이 '최근 검색한 노선'을 밀어낸다.
+    // 미리보기에서는 거기 예시 노선 카드가 있어서, 숫자를 누른 순간 **앱을
+    // 둘러볼 유일한 입구가 사라졌다.** 번호를 눌러보는 건 이 화면에서 제일
+    // 자연스러운 행동이라 대부분 그 상태로 막힌다 — 여기서도 카드를 이어준다.
+    if (state.apiKeysMissing) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 14, bottom: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              state.demoRoute != null
+                  ? '실제 검색은 앱을 설치해야 동작해요. 대신 예시 노선을 눌러보세요.'
+                  : '실제 검색은 앱을 설치해야 동작해요.',
+              style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13, color: palette.textMuted),
+            ),
+            if (state.demoRoute != null) ...[
+              const SizedBox(height: 10),
+              _DemoRouteCard(palette: palette, state: state),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 4),
       child: Text(
-        // 키가 없으면 버튼이 비활성이라, "눌러서 찾아요"는 거짓말이 된다.
-        state.apiKeysMissing
-            ? '실제 검색은 앱을 설치해야 동작해요.'
-            : '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
+        '아래 검색 버튼을 눌러 전국에서 ${state.query}번을 찾아요.',
         style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13.5, color: palette.textMuted),
       ),
     );
