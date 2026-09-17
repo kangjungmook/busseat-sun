@@ -60,6 +60,14 @@ class SunCalc {
   int get sunriseMin => _daylight.sunriseMin ?? 0;
   int get sunsetMin => _daylight.sunsetMin ?? 1439;
 
+  /// 남중 시각(분). "낮 기준으로 보기" 같은 곳에서 그날의 대표 시각으로 쓴다.
+  ///
+  /// 예전에는 972(16:12)가 상수로 박혀 있었다. 밤은 아니지만(12월 대전 일몰이
+  /// 17:19라 아직 낮이다) 그 시각 태양 고도가 **10.2°밖에 안 된다** — 남중
+  /// 고도 30.1°의 3분의 1이다. 밤을 피해 누른 버튼이 하필 해가 가장 낮은
+  /// 때를 가리키는 셈이라, 계절과 무관하게 그날의 남중을 쓴다.
+  int get solarNoonMin => _daylight.solarNoonMin;
+
   /// 0(일출) ~ 1(일몰) 정규화된 낮 진행도. 구간 분류처럼 "하루 중 언제쯤"만
   /// 필요한 곳에서 쓴다.
   double dayProgress(int minutes) {

@@ -467,8 +467,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 밤 화면에서 "낮 기준으로 보기". 그날의 남중 시각을 쓴다 — 예전에는
+  /// 972(16:12)가 박혀 있었는데, 12월엔 그 시각의 태양 고도가 10°에 불과해
+  /// (남중은 30°) 하필 해가 가장 낮은 때를 보여줬다.
   void useDaytime() {
-    minutes = 972;
+    minutes = daytimeReferenceMinutes;
     resultEntered = false;
     screen = AppScreen.result;
     notifyListeners();
@@ -672,8 +675,19 @@ class AppState extends ChangeNotifier {
 
   // ---- 시각 슬라이더 (지도 / AR) ----
 
+  /// 시각 슬라이더가 움직일 수 있는 범위 — 그날 그 위치의 **실제 일출~일몰**.
+  ///
+  /// 예전에는 05:00~20:00 고정이었다. 12월 일몰이 17:15 언저리라 18~20시는
+  /// 밤인데도 슬라이더가 거기까지 갔고, 그 구간에서 화면은 좌우 추천과
+  /// 퍼센트를 계속 보여줬다 — 일사가 0이라 근거가 없는 값이다.
+  int get daylightStartMinutes => sun.sunriseMin;
+  int get daylightEndMinutes => sun.sunsetMin;
+
+  /// "낮 기준으로 보기"가 쓸 대표 시각.
+  int get daytimeReferenceMinutes => sun.solarNoonMin;
+
   void setMinutes(int m) {
-    minutes = m.clamp(300, 1200);
+    minutes = m.clamp(daylightStartMinutes, daylightEndMinutes);
     notifyListeners();
   }
 

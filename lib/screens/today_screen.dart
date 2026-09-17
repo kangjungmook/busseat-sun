@@ -142,12 +142,17 @@ class _TodayCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${adv.sideLabel} 창가에\n앉으세요',
+                          // 해가 진 뒤에는 좌우 어느 쪽도 직사광을 받지 않는다.
+                          // 그런데도 advice 는 늘 한쪽과 46~95% 사이 숫자를
+                          // 내놓으므로, 여기서 사실을 말한다.
+                          comp.isNight ? '해가 진 뒤라\n좌우가 같아요' : '${adv.sideLabel} 창가에\n앉으세요',
                           style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -1.2, height: 1.2, color: palette.onPrimary),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '이동 중 ${adv.pct}% $modeWord 좋음 · ${comp.durationMin}분',
+                          comp.isNight
+                              ? '아무 창가나 괜찮아요 · ${comp.durationMin}분'
+                              : '이동 중 ${adv.pct}% $modeWord 좋음 · ${comp.durationMin}분',
                           style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 14.5, fontWeight: FontWeight.w700, color: palette.onPrimary.withValues(alpha: .9)),
                         ),
                       ],
@@ -192,12 +197,12 @@ class _FavRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('${fav.routeNo} · ${adv.sideLabel} 창가', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 15, fontWeight: FontWeight.w800, color: palette.text)),
+                    Text(comp.isNight ? '${fav.routeNo} · 해가 진 뒤' : '${fav.routeNo} · ${adv.sideLabel} 창가', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 15, fontWeight: FontWeight.w800, color: palette.text)),
                     Text('${fav.from} → ${fav.to}', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 12, color: palette.textMuted)),
                   ],
                 ),
               ),
-              Text('${adv.pct}%', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13, fontWeight: FontWeight.w800, color: palette.primaryText)),
+              Text(comp.isNight ? '—' : '${adv.pct}%', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 13, fontWeight: FontWeight.w800, color: palette.primaryText)),
             ],
           ),
         ),

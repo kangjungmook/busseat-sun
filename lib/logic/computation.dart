@@ -22,6 +22,12 @@ class SeatComputation {
 
   /// 일사 세기 0~1 — 좌석 점수용.
   late final double intensity = sun.intensity(minutes);
+
+  /// 해가 진 뒤인가. 이때는 좌우 어느 쪽도 직사광을 받지 않으므로 **추천할
+  /// 것이 없다.** 그런데도 [advice]는 늘 한쪽과 46~95% 사이의 숫자를 내놓는다
+  /// (하한이 46으로 잡혀 있어 "차이 없음"을 표현할 수가 없다). 화면이 이 값을
+  /// 보고 숫자 대신 사실을 말해야 한다.
+  late final bool isNight = sun.isNight(minutes);
   /// 승차→하차 구간을 실제 정류장 좌표로 자른 것. 좌표가 없으면 빈 목록.
   late final List<RouteSegment> routeSegments = SeatCalc.buildSegments(
     dir: dir,

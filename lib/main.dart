@@ -101,7 +101,12 @@ class AppRoot extends StatelessWidget {
         body = NightScreen(palette: palette);
         break;
       case AppScreen.result:
-        body = ResultScreen(palette: palette);
+        // 밤이면 결과 대신 밤 화면. 예전에는 검색 경로(pickDir)에만 이 가드가
+        // 있어서, 즐겨찾기로 바로 열거나 시각을 옮긴 뒤에는 **해가 진 뒤에도
+        // 좌우 추천과 퍼센트가 나왔다** (12월 19시에 "왼쪽 창가 · 73%").
+        // 일사가 0이라 근거가 없는 값이다. 진입 경로마다 막지 않고 여기서 한 번
+        // 막는다 — 나중에 새 경로가 생겨도 새지 않는다.
+        body = state.isNight ? NightScreen(palette: palette) : ResultScreen(palette: palette);
         break;
       case AppScreen.seatMap:
         body = SeatMapScreen(palette: palette);

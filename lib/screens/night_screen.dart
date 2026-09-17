@@ -52,7 +52,7 @@ class NightScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         onTap: state.useDaytime,
                         child: Center(
-                          child: Text('주간(16:12) 기준으로 보기', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 16.5, fontWeight: FontWeight.w800, color: palette.background)),
+                          child: Text('낮(${SunCalc.timeLabel(state.daytimeReferenceMinutes)}) 기준으로 보기', style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 16.5, fontWeight: FontWeight.w800, color: palette.background)),
                         ),
                       ),
                     ),

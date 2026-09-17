@@ -421,10 +421,14 @@ class _ArSheet extends StatelessWidget {
               Expanded(
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(trackHeight: 4, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8)),
+                  // 범위는 그날 그 위치의 실제 일출~일몰 (map_screen 과 같은 이유).
                   child: Slider(
-                    value: state.minutes.toDouble(),
-                    min: 300,
-                    max: 1200,
+                    value: state.minutes.toDouble().clamp(
+                          state.daylightStartMinutes.toDouble(),
+                          state.daylightEndMinutes.toDouble(),
+                        ),
+                    min: state.daylightStartMinutes.toDouble(),
+                    max: state.daylightEndMinutes.toDouble(),
                     activeColor: palette.primary,
                     inactiveColor: palette.subtle,
                     onChanged: (v) => state.setMinutes(v.round()),
