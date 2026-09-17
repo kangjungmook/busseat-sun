@@ -47,11 +47,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// 좁은 화면에서 가운데 영역에 주는 높이. 예시 노선 카드 한 장이 들어가는 크기.
-  static const double _tightMiddleHeight = 116;
-
   /// 이 높이보다 낮으면 스크롤 레이아웃으로 바꾼다.
-  static const double _kComfortableHeight = 680;
+  ///
+  /// 680으로 뒀다가 360x780에서 **예시 노선 카드가 키패드 위로 겹쳐 그려지는**
+  /// 걸 봤다. Expanded가 준 높이보다 내용이 크면 잘리는 게 아니라 밖으로
+  /// 삐져나가 그린다. 배너·즐겨찾기 유무에 따라 필요한 높이가 달라져서
+  /// 임계값만으로는 못 막으므로, 아래 Expanded 쪽도 스크롤로 감쌌다.
+  static const double _kComfortableHeight = 820;
 
   List<Widget> _body(
     AppState state, {
@@ -104,7 +106,10 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 10),
             // 넉넉하면 남는 공간을 먹어 키패드를 바닥에 붙이고, 좁으면 고정
             // 높이를 준다 — Expanded 는 스크롤 안에서 쓸 수 없다(높이가 무한).
-            if (tight) SizedBox(height: _tightMiddleHeight, child: middle) else Expanded(child: middle),
+            // 좁으면 바깥이 스크롤되므로 자연 높이 그대로 두고, 넉넉하면
+            // 남는 공간을 먹되 **안쪽을 스크롤로 감싸** 어떤 크기에서도 밖으로
+            // 그려지지 않게 한다.
+            if (tight) middle else Expanded(child: SingleChildScrollView(child: middle)),
             const SizedBox(height: 10),
             _Keypad(palette: palette, state: state),
             const SizedBox(height: 9),
@@ -467,10 +472,12 @@ class _SearchHint extends StatelessWidget {
     // 둘러볼 유일한 입구가 사라졌다.** 번호를 눌러보는 건 이 화면에서 제일
     // 자연스러운 행동이라 대부분 그 상태로 막힌다 — 여기서도 카드를 이어준다.
     if (state.apiKeysMissing) {
-      return SingleChildScrollView(
+      // 스크롤은 부모가 맡는다 — 여기서 또 감싸면 스크롤이 중첩된다.
+      return Padding(
         padding: const EdgeInsets.only(top: 14, bottom: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               state.demoRoute != null
