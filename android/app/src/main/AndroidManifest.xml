@@ -4,6 +4,16 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.CAMERA"/>
 
+    <!-- 권한만 선언하면 플레이가 해당 하드웨어를 **필수**로 해석해서, 그 부품이
+         없는 기기는 설치 대상에서 아예 빠진다. 이 앱은 카메라도 GPS도 없으면
+         없는 대로 동작한다(AR은 드래그 시뮬레이션으로, 위치는 전국 중심
+         좌표로 대체). 그러니 required=false 로 명시한다. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="false"/>
+
     <application
         android:label="햇살좌석"
         android:name="${applicationName}"
@@ -11,6 +21,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"

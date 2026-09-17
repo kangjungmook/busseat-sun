@@ -20,12 +20,47 @@ class HomeScreen extends StatelessWidget {
     final hasQuery = state.query.isNotEmpty;
     final showFavs = !hasQuery && state.favorites.isNotEmpty;
 
+    // 세로로 넉넉한 화면에서는 예전처럼 키패드와 버튼을 바닥에 붙이고, 가운데
+    // 영역이 남는 공간을 먹는다. 좁은 화면(360x640 같은 흔한 보급형)에서는 그
+    // 레이아웃이 **넘치는 만큼 그냥 잘렸다** — 키패드 마지막 줄과 검색 버튼이
+    // 화면 밖으로 나가 누를 수가 없었다. 넘칠 때는 전체를 스크롤시킨다.
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tight = constraints.maxHeight < _kComfortableHeight;
+          final content = Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _body(state, hasQuery: hasQuery, showFavs: showFavs, tight: tight),
+            ),
+          );
+          if (!tight) return content;
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: content,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 좁은 화면에서 가운데 영역에 주는 높이. 예시 노선 카드 한 장이 들어가는 크기.
+  static const double _tightMiddleHeight = 116;
+
+  /// 이 높이보다 낮으면 스크롤 레이아웃으로 바꾼다.
+  static const double _kComfortableHeight = 680;
+
+  List<Widget> _body(
+    AppState state, {
+    required bool hasQuery,
+    required bool showFavs,
+    required bool tight,
+  }) {
+    final middle = hasQuery ? _SearchHint(palette: palette, state: state) : _RecentsRow(palette: palette, state: state);
+    return [
             SizedBox(
               height: 44,
               child: Row(
@@ -67,9 +102,9 @@ class HomeScreen extends StatelessWidget {
               _FavoritesSection(palette: palette, state: state),
             ],
             const SizedBox(height: 10),
-            Expanded(
-              child: hasQuery ? _SearchHint(palette: palette, state: state) : _RecentsRow(palette: palette, state: state),
-            ),
+            // 넉넉하면 남는 공간을 먹어 키패드를 바닥에 붙이고, 좁으면 고정
+            // 높이를 준다 — Expanded 는 스크롤 안에서 쓸 수 없다(높이가 무한).
+            if (tight) SizedBox(height: _tightMiddleHeight, child: middle) else Expanded(child: middle),
             const SizedBox(height: 10),
             _Keypad(palette: palette, state: state),
             const SizedBox(height: 9),
@@ -78,10 +113,7 @@ class HomeScreen extends StatelessWidget {
               onTap: state.canSubmitSearch ? state.submitSearch : null,
               palette: palette,
             ),
-          ],
-        ),
-      ),
-    );
+    ];
   }
 }
 

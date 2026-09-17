@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/ar_screen.dart';
@@ -21,6 +22,13 @@ import 'widgets/fav_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // 세로 고정. 한 손으로 버스 타기 직전에 3초 쓰는 앱이고, 가로에서는 홈 화면이
+  // 키패드까지 닿지 못한다. 가로를 제대로 지원하려면 별도 레이아웃이 필요한데
+  // 그건 이 앱이 쓰이는 상황과 맞지 않는다.
+  SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState(),
