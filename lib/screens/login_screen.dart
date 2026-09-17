@@ -60,6 +60,27 @@ class LoginScreen extends StatelessWidget {
             ),
             Column(
               children: [
+                // 키가 없는 빌드(공개 웹 미리보기)에서는 카카오 로그인이 어차피
+                // 실패한다. 그런데 그게 화면에서 제일 큰 노란 버튼이고, 실제로
+                // 쓸 수 있는 '둘러보기'는 그 아래 흐린 글씨였다. 누구든 노란
+                // 버튼부터 누르고, 오류를 보고, 앱이 고장났다고 생각하고 나간다.
+                // 실제로 "예시 노선이 어디 있냐"는 말을 들었다. 여기서는 순서를
+                // 뒤집어, 되는 쪽을 주 버튼으로 올린다.
+                if (state.apiKeysMissing) ...[
+                  SolidButton(
+                    text: '예시 노선 둘러보기',
+                    onTap: state.loginAsGuest,
+                    palette: palette,
+                    height: 56,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '이 웹 미리보기에는 API 키가 없어 카카오 로그인과 노선 검색이 동작하지 않아요.\n'
+                    '실제 TAGO 데이터로 만든 예시 노선으로 결과 화면까지 둘러볼 수 있습니다.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, color: palette.textMuted, height: 1.6),
+                  ),
+                ] else ...[
                 SizedBox(
                   height: 56,
                   width: double.infinity,
@@ -98,6 +119,7 @@ class LoginScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontFamily: AppTextStyles.family, fontSize: 11, color: palette.textMuted, height: 1.6),
                 ),
+                ],
               ],
             ),
           ],
