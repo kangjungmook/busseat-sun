@@ -185,12 +185,20 @@ flutter build web --release --base-href /busseat-sun/
 - `webview_flutter`가 웹을 지원하지 않아 **지도 화면은 웹에서 항상 플레이스홀더**
   입니다 (`map_screen.dart`에서 `kIsWeb`으로 차단 — JS 키가 있어도 안전).
 - AR 화면의 카메라·나침반은 웹에서 동작하지 않습니다.
-- CanvasKit을 CDN(`gstatic.com`)에서 받으므로 그 도메인이 막힌 망에서는 흰 화면이
-  됩니다. 그때는 `build/web`의 CanvasKit 로컬 사본을 쓰도록 경로를 바꿔야 합니다.
+- **CanvasKit은 같이 올립니다.** 기본값은 `gstatic.com` CDN인데, 그게 느리거나
+  막히면 **아무 오류 없이 흰 화면**이 됩니다 — 앱 코드가 실행되기 전 단계라
+  화면에 안내조차 못 띄웁니다. 실제로 겪었고, 진단이 어려웠습니다(배포본 자체는
+  멀쩡했습니다). 지금은 `canvasKitBaseUrl`을 같이 올린 사본으로 돌려, 외부
+  호스트를 전부 차단한 상태에서도 뜨는 것을 확인했습니다.
 
-`docs/`는 GitHub Pages용 빌드 사본입니다 (CanvasKit은 CDN을 쓰므로 제외 —
-11MB vs 47MB). 서비스 워커 등록은 뺐습니다: 계속 다시 올리는 중이라 워커가 이전
-빌드를 캐시해서 새로고침해도 옛 화면이 보이는 편이 훨씬 나쁩니다.
+`docs/`는 GitHub Pages용 빌드 사본입니다. **`tool/build_pages.sh`로 만드세요** —
+손으로 하면 빠뜨리는 단계가 셋 있습니다(키 없이 빌드 / CanvasKit 동봉 /
+서비스 워커 제거). 스크립트가 마지막에 키 유출 점검까지 합니다.
+
+CanvasKit은 쓰는 것만 남겨 37MB → 12MB로 줄였고(`canvaskit` + `chromium` 변형
+넷), `docs/` 전체는 23MB입니다. 서비스 워커 등록은 뺐습니다: 계속 다시 올리는
+중이라 워커가 이전 빌드를 캐시해서 새로고침해도 옛 화면이 보이는 편이 훨씬
+나쁩니다.
 
 ---
 
