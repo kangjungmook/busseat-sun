@@ -16,6 +16,11 @@
 
 [![CI](https://github.com/kangjungmook/busseat-sun/actions/workflows/ci.yml/badge.svg)](https://github.com/kangjungmook/busseat-sun/actions/workflows/ci.yml)
 
+### ▶ [브라우저에서 바로 열어보기](https://kangjungmook.github.io/busseat-sun/)
+
+<sub>설치 없이 열립니다. 첫 화면의 **‘예시 노선 둘러보기’** 를 누르면<br>
+실제 TAGO 데이터로 계산한 결과·좌석지도까지 그대로 볼 수 있습니다.</sub>
+
 </div>
 
 ---
@@ -149,9 +154,12 @@ API는 브라우저·curl로 실제 응답을 받아가며 붙였습니다 — T
 ## 직접 열어보기
 
 **[화면 미리보기 (웹)](https://kangjungmook.github.io/busseat-sun/)** — 설치 없이
-열어볼 수 있습니다. **공개 빌드에는 API 키를 넣지 않으므로 노선 검색은 동작하지
-않지만**(공개 저장소에 키가 박히기 때문), 홈에 있는 **예시 노선**을 누르면 결과·
-좌석지도·구간지정까지 그대로 볼 수 있습니다.
+열립니다. 첫 화면에서 **`예시 노선 둘러보기`** → 홈의 `예시 B7번` 카드 → 결과 화면
+순서입니다.
+
+**공개 빌드에는 API 키를 넣지 않습니다**(공개 저장소에 키가 박히기 때문). 그래서
+카카오 로그인과 노선 검색은 동작하지 않고, 앱이 화면에서 그렇게 말합니다. 대신
+예시 노선으로 결과·좌석지도·구간지정까지 다 볼 수 있습니다.
 
 그 예시는 지어낸 데이터가 아닙니다. `getRouteAcctoThrghSttnList`를 실제로 호출해
 받은 응답 원문(세종 B7, 정류장 39개)을 에셋으로 두고, **검색과 같은 파서·같은

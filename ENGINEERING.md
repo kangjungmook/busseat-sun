@@ -191,6 +191,11 @@ flutter build web --release --base-href /busseat-sun/
   멀쩡했습니다). 지금은 `canvasKitBaseUrl`을 같이 올린 사본으로 돌려, 외부
   호스트를 전부 차단한 상태에서도 뜨는 것을 확인했습니다.
 
+⚠️ **Pages가 `claude/busseat-api-validation-hc2yoa` 브랜치에서 배포되고 있습니다**
+(배포 기록의 `head_branch`로 확인). 지금은 `main`과 내용이 같아 문제가 없지만,
+그 브랜치를 지우면 미리보기가 끊깁니다. 저장소 Settings → Pages에서 소스를
+`main` / `/docs`로 바꿔두는 편이 안전합니다.
+
 `docs/`는 GitHub Pages용 빌드 사본입니다. **`tool/build_pages.sh`로 만드세요** —
 손으로 하면 빠뜨리는 단계가 셋 있습니다(키 없이 빌드 / CanvasKit 동봉 /
 서비스 워커 제거). 스크립트가 마지막에 키 유출 점검까지 합니다.
