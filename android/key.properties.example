@@ -1,0 +1,28 @@
+# 이 파일을 android/key.properties 로 복사하고 실제 값을 채운다. (gitignored)
+#
+# 키스토어 만들기 (Windows PowerShell — keytool 은 안드로이드 스튜디오에 들어있다):
+#
+#   & "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkey -v `
+#       -keystore $HOME\busseat-upload.jks -storetype JKS `
+#       -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# macOS / Linux:
+#
+#   keytool -genkey -v -keystore ~/busseat-upload.jks -storetype JKS \
+#       -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# ⚠️ 이 키스토어와 비밀번호를 잃어버리면 **같은 앱을 다시는 업데이트할 수
+#    없습니다.** 저장소에 넣지 말고, 백업은 따로 안전한 곳에 두세요.
+#    (플레이 앱 서명을 쓰면 구글이 복구를 도와줄 수 있지만, 업로드 키는
+#     여전히 본인 책임입니다.)
+
+# ⚠️ 경로는 **역슬래시(\) 말고 슬래시(/)** 로 쓰세요. .properties 파일에서
+#    역슬래시는 이스케이프 문자라 C:\Users\... 는 깨집니다.
+# ⚠️ 경로와 비밀번호에 **한글을 쓰지 마세요.** Properties.load 가 이 파일을
+#    ISO-8859-1로 읽어서 한글이 깨집니다. 윈도우 사용자명이 한글이면
+#    키스토어를 C:/keys/ 같은 영문 경로에 두세요.
+
+storeFile=C:/keys/busseat-upload.jks
+storePassword=키스토어_비밀번호
+keyAlias=upload
+keyPassword=키_비밀번호

@@ -49,3 +49,8 @@ app.*.map.json
 !/secrets/*.example.json
 android/app/secrets.properties
 ios/Flutter/Secrets.xcconfig
+
+# 릴리스 서명 — 키스토어와 비밀번호는 절대 저장소에 들어가면 안 된다
+android/key.properties
+*.jks
+*.keystore

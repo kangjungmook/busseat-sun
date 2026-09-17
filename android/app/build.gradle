@@ -13,6 +13,18 @@ if (secretsFile.exists()) {
     secretsFile.withInputStream { secrets.load(it) }
 }
 
+// 릴리스 서명 — android/key.properties (gitignored)에서 읽는다.
+// 파일과 키스토어가 없으면 서명 설정을 만들지 않고, 릴리스는 디버그 키로
+// 떨어진다(로컬에서 `flutter run --release`가 되도록). 그 상태의 산출물은
+// **플레이에 올릴 수 없으므로** 빌드할 때 경고를 찍는다.
+def keyPropsFile = rootProject.file("key.properties")
+def keyProps = new Properties()
+if (keyPropsFile.exists()) {
+    keyPropsFile.withInputStream { keyProps.load(it) }
+}
+def storeFilePath = keyProps.getProperty("storeFile")
+def hasReleaseKey = storeFilePath != null && rootProject.file(storeFilePath).exists()
+
 android {
     namespace = "com.sunseat.sunseat"
     compileSdk = flutter.compileSdkVersion
@@ -44,11 +56,38 @@ android {
         manifestPlaceholders["kakaoNativeAppKey"] = kakaoNativeAppKey
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            release {
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = hasReleaseKey ? signingConfigs.release : signingConfigs.debug
+            // 난독화/축소는 켜지 않는다. 카카오 SDK와 리플렉션을 쓰는 쪽에
+            // 규칙을 따로 써줘야 하는데, 실기기에서 한 번도 검증하지 못한
+            // 상태에서 켜면 릴리스에서만 깨지는 버그를 만들게 된다.
+            minifyEnabled = false
+            shrinkResources = false
+        }
+    }
+}
+
+// 디버그 키로 서명된 릴리스를 모르고 올리는 일이 없도록, 빌드 때 한 번 알린다.
+if (!hasReleaseKey) {
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.allTasks.any { it.name.toLowerCase().contains("release") }) {
+            logger.warn("")
+            logger.warn("⚠️  android/key.properties 가 없어 릴리스를 디버그 키로 서명합니다.")
+            logger.warn("    이 산출물은 플레이 콘솔에 업로드할 수 없습니다.")
+            logger.warn("    설정 방법: android/key.properties.example 참고")
+            logger.warn("")
         }
     }
 }
