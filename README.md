@@ -8,6 +8,10 @@
 있다면 만들려던 게 이겁니다. 노선 번호만 넣으면 **왼쪽인지 오른쪽인지** 하나만
 답합니다.
 
+<sub>직사광이 닿으면 폰 화면은 밝기를 최대로 올려도 안 보이고, 눈이 부셔 내릴<br>
+정류장을 놓치기도 합니다. 겨울엔 반대로 볕 드는 자리를 찾고요.<br>
+한 번 앉으면 옮기기 어려우니, 타기 전 3초에 답이 나와야 의미가 있습니다.</sub>
+
 <img src="screenshots/02-home.png" width="215" alt="홈 화면 — 실제 계산된 태양 궤적" />&nbsp;<img src="screenshots/03-result.png" width="215" alt="결과 화면 — 왼쪽 창가 추천과 구간별 일사" />&nbsp;<img src="screenshots/04-seatmap.png" width="215" alt="좌석별 그늘 지도" />
 
 <sub>가운데·오른쪽은 실제 TAGO 응답(세종 B7, 정류장 39개)으로 계산한 결과입니다.</sub>
